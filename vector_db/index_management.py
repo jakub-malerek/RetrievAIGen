@@ -12,3 +12,12 @@ def create_index(elastic_instance: Elasticsearch, index_name: str, mapping: dict
                 mapping = json.load(file)
 
         elastic_instance.indices.create(index=index_name, body=mapping)
+
+
+def update_mapping(elastic_instance: Elasticsearch, index_name: str, mapping: dict | Path) -> None:
+
+    if isinstance(mapping, Path):
+        with open(mapping, mode="rt") as file:
+            mapping = json.load(file)
+
+    elastic_instance.indices.put_mapping(index=index_name, body=mapping)
