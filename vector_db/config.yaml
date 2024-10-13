@@ -1,0 +1,3 @@
+elasticsearch:
+  indicies:
+    ai_news: ai_news_01
