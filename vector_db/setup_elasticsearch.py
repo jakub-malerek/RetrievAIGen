@@ -1,3 +1,4 @@
+"""Module is used for database setup from python code. It creates index (table) in Elasticsearch with mapping (schema)."""
 from pathlib import Path
 
 from elasticsearch import Elasticsearch

@@ -1,3 +1,5 @@
+"""Runner file for pipelines"""
+
 from config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, ES_AI_NEWS_INDEX, NEWS_API_ENDPOINT, NEWS_API_KEY
 from pipelines.news_api.pipeline import run_etl
 from utils.elasitc_utils import connect_to_es

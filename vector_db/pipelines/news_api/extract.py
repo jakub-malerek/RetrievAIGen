@@ -1,13 +1,16 @@
-"""This module implements utilizing the News API to extract AI news data."""
-
+"""This module implements the data extraction logic for the News API."""
 import requests
+from datetime import datetime, timedelta
 
 
 def get_ai_news(endpoint: str, api_key: str) -> list[dict]:
-    """Extract AI news data from the News API."""
+    """Extract AI news data from the News API for the past week."""
+
+    one_week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+
     params = {
         "q": "artificial intelligence OR ai",
-        "from": "2024-10-27",
+        "from": one_week_ago,
         "sortBy": "relevance",
         "language": "en"
     }
@@ -16,7 +19,7 @@ def get_ai_news(endpoint: str, api_key: str) -> list[dict]:
     }
 
     try:
-        print("Requesting AI news data from News API...")
+        print(f"Requesting AI news data from News API starting from {one_week_ago}...")
         response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()
     except requests.exceptions.HTTPError as http_err:
