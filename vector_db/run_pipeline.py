@@ -1,10 +1,7 @@
-import json
+from config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, ES_AI_NEWS_INDEX, NEWS_API_ENDPOINT, NEWS_API_KEY
+from pipelines.news_api.pipeline import run_etl
+from utils.elasitc_utils import connect_to_es
 
-from pipeline.news_api.extract import get_ai_news
-from config import NEWS_API_ENDPOINT, NEWS_API_KEY
+es = connect_to_es(ES_HOST, ES_PORT, ES_USER, ES_PASSWORD)
 
-data = get_ai_news(NEWS_API_ENDPOINT, NEWS_API_KEY)
-
-
-with open("result.json", mode="wt") as file:
-    json.dump(data, file, indent=4)
+run_etl(news_endpoint=NEWS_API_ENDPOINT, news_api_key=NEWS_API_KEY, es_instance=es, index_name=ES_AI_NEWS_INDEX)
