@@ -1,3 +1,5 @@
+"""This module orchestrates the ETL process for the News API data."""
+
 from pipelines.news_api.extract import get_ai_news
 from pipelines.news_api.transform import transform_data
 from pipelines.news_api.load import bulk_load_documents

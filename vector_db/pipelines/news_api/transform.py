@@ -11,7 +11,6 @@ embedder = TextEmbedder()
 def transform_data(news_data: dict) -> dict:
     """Transforms news data by generating embeddings for specified fields."""
 
-    # Prepare the transformed data with basic fields
     transformed_data = {
         "author": news_data.get("author"),
         "content": news_data.get("content"),
@@ -22,7 +21,6 @@ def transform_data(news_data: dict) -> dict:
         "url": news_data.get("url"),
     }
 
-    # Generate embeddings for specified fields, if available
     if transformed_data["content"]:
         transformed_data["content_vector"] = embedder.get_embedding(transformed_data["content"])[0]
 

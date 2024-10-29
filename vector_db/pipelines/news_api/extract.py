@@ -1,3 +1,5 @@
+"""This module implements utilizing the News API to extract AI news data."""
+
 import requests
 
 
