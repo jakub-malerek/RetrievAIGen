@@ -20,7 +20,7 @@ def transform_data(news_data: dict) -> dict:
         "title": news_data.get("title", "Untitled"),
         "url": news_data.get("url"),
     }
-
+    print("Transforming: ", transformed_data["title"])
     if transformed_data["content"]:
         transformed_data["content_vector"] = embedder.get_embedding(transformed_data["content"])[0]
 

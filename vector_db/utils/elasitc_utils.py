@@ -62,6 +62,7 @@ def bulk_load_documents(es: Elasticsearch, index_name: str, documents: list[dict
     Returns:
         bool: True if the documents were successfully indexed, False otherwise.
     """
+    print("Preparing documents for bulk indexing...")
     actions = [
         {
             "_index": index_name,
