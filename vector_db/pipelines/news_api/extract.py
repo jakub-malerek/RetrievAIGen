@@ -31,11 +31,15 @@ one_week_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
 
 
 def get_tech_news(endpoint: str, api_key: str, topics: list[str] = TOPICS, delay: int = 2) -> list[dict]:
-
+    """
+    Extracts tech news data from the News API for each specified topic in the past week,
+    with deduplication based on article URLs.
+    """
     headers = {
         "Authorization": f"Bearer {api_key}"
     }
     all_articles = []
+    seen_urls = set()  # Set to track seen URLs for deduplication
 
     for topic in topics:
         print(f"Requesting news data for topic '{topic}' from News API starting from {one_week_ago}...")
@@ -57,8 +61,12 @@ def get_tech_news(endpoint: str, api_key: str, topics: list[str] = TOPICS, delay
             print(f"Retrieved {len(articles)} articles for topic '{topic}'.")
 
             for article in articles:
-                article["topic"] = topic
-            all_articles.extend(articles)
+                if article["url"] not in seen_urls:
+                    seen_urls.add(article["url"])
+                    article["topic"] = topic
+                    all_articles.append(article)
+                else:
+                    print(f"Duplicate article detected and skipped: {article['title']}")
 
         except requests.exceptions.HTTPError as http_err:
             print(f"HTTP error occurred while fetching topic '{topic}': {http_err}")
@@ -71,7 +79,8 @@ def get_tech_news(endpoint: str, api_key: str, topics: list[str] = TOPICS, delay
         except ValueError:
             print(f"Error: Failed to parse JSON response for topic '{topic}'.")
 
+        # Delay to avoid hitting the API rate limit
         time.sleep(delay)
 
-    print(f"Total articles retrieved across all topics: {len(all_articles)}")
+    print(f"Total articles retrieved after deduplication: {len(all_articles)}")
     return all_articles
