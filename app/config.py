@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=env_path)
 
 # Elasticsearch setup
 ES_HOST = os.getenv("ES_HOST")
-ES_PORT = os.getenv("ES_PORT")
+ES_PORT = int(os.getenv("ES_PORT"))
 ES_USER = os.getenv("ES_USER")
 ES_PASSWORD = os.getenv("ES_PASSWORD")
 
