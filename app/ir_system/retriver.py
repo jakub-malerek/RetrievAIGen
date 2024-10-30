@@ -43,9 +43,27 @@ class InformationRetriever:
                     "should": [
                         {
                             "script_score": {
-                                "query": {"match_all": {}},
+                                "query": {"exists": {"field": "content_vector"}},
                                 "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'content_vector') + 1.0",
+                                    "source": "cosineSimilarity(params.query_vector, 'content_vector') + 1.2",
+                                    "params": {"query_vector": query_vector}
+                                }
+                            }
+                        },
+                        {
+                            "script_score": {
+                                "query": {"exists": {"field": "description_vector"}},
+                                "script": {
+                                    "source": "cosineSimilarity(params.query_vector, 'description_vector') + 1.1",
+                                    "params": {"query_vector": query_vector}
+                                }
+                            }
+                        },
+                        {
+                            "script_score": {
+                                "query": {"exists": {"field": "title_vector"}},
+                                "script": {
+                                    "source": "cosineSimilarity(params.query_vector, 'title_vector') + 1.0",
                                     "params": {"query_vector": query_vector}
                                 }
                             }
@@ -53,7 +71,7 @@ class InformationRetriever:
                         {
                             "multi_match": {
                                 "query": query,
-                                "fields": ["title^2", "description^1.5", "content"],
+                                "fields": ["title^1.5", "description^1.2", "content"],
                                 "type": "best_fields"
                             }
                         }
