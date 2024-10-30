@@ -39,7 +39,7 @@ def get_tech_news(endpoint: str, api_key: str, topics: list[str] = TOPICS, delay
         "Authorization": f"Bearer {api_key}"
     }
     all_articles = []
-    seen_urls = set()  # Set to track seen URLs for deduplication
+    seen_urls = set()
 
     for topic in topics:
         print(f"Requesting news data for topic '{topic}' from News API starting from {one_week_ago}...")
@@ -79,7 +79,6 @@ def get_tech_news(endpoint: str, api_key: str, topics: list[str] = TOPICS, delay
         except ValueError:
             print(f"Error: Failed to parse JSON response for topic '{topic}'.")
 
-        # Delay to avoid hitting the API rate limit
         time.sleep(delay)
 
     print(f"Total articles retrieved after deduplication: {len(all_articles)}")
