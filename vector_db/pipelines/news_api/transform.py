@@ -19,8 +19,12 @@ def transform_data(news_data: dict) -> dict:
         "source_name": news_data["source"].get("name") if news_data.get("source") else None,
         "title": news_data.get("title", "Untitled"),
         "url": news_data.get("url"),
+        # Add topic field
+        "topic": news_data.get("topic")
     }
     print("Transforming: ", transformed_data["title"])
+
+    # Generate embeddings for each text field if they exist
     if transformed_data["content"]:
         transformed_data["content_vector"] = embedder.get_embedding(transformed_data["content"])[0]
 

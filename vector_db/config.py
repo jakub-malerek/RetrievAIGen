@@ -20,4 +20,4 @@ ES_USER = os.getenv("ES_USER")
 ES_PASSWORD = os.getenv("ES_PASSWORD")
 
 # elastic specific
-ES_AI_NEWS_INDEX = cfg["elasticsearch"]["indicies"]["ai_news"]
+TECH_NEWS_INDEX = cfg["elasticsearch"]["indicies"]["tech_news"]

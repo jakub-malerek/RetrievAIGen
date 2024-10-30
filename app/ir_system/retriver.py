@@ -1,13 +1,12 @@
 from elasticsearch import Elasticsearch
 from typing import List, Dict
-
 from models.huggingface.embedding import TextEmbedder
 
 embedder = TextEmbedder()
 
 
 class InformationRetriever:
-    def __init__(self, es_client: Elasticsearch, embedder=embedder, index_name="ai_news_01"):
+    def __init__(self, es_client: Elasticsearch, embedder=embedder, index_name="tech_news_01"):
         self.es_client = es_client
         self.embedder = embedder
         self.index_name = index_name
@@ -33,58 +32,24 @@ class InformationRetriever:
             top_k (int): Number of top results to return.
 
         Returns:
-            List[Dict]: List of search results.
+            List[Dict]: List of search results, including document _id for duplicate tracking.
         """
-        # Step 1: Vectorize the query
         query_vector = self.vectorize_query(query)
 
-        # Step 2: Define the search query with vector similarity and boosted keyword search
         search_query = {
             "size": top_k,
             "query": {
                 "bool": {
                     "should": [
-                        # Vector search for each vector field with equal weight
                         {
                             "script_score": {
-                                "query": {
-                                    "match_all": {}
-                                },
+                                "query": {"match_all": {}},
                                 "script": {
                                     "source": "cosineSimilarity(params.query_vector, 'content_vector') + 1.0",
-                                    "params": {
-                                        "query_vector": query_vector
-                                    }
+                                    "params": {"query_vector": query_vector}
                                 }
                             }
                         },
-                        {
-                            "script_score": {
-                                "query": {
-                                    "match_all": {}
-                                },
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'description_vector') + 1.0",
-                                    "params": {
-                                        "query_vector": query_vector
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            "script_score": {
-                                "query": {
-                                    "match_all": {}
-                                },
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'title_vector') + 1.0",
-                                    "params": {
-                                        "query_vector": query_vector
-                                    }
-                                }
-                            }
-                        },
-                        # Text-based keyword search with boosted fields
                         {
                             "multi_match": {
                                 "query": query,
@@ -97,13 +62,12 @@ class InformationRetriever:
             }
         }
 
-        # Step 3: Execute the search query
         response = self.es_client.search(index=self.index_name, body=search_query)
 
-        # Step 4: Process and return results
         hits = response["hits"]["hits"]
         results = [
             {
+                "_id": hit["_id"],
                 "title": hit["_source"]["title"],
                 "author": hit["_source"]["author"],
                 "description": hit["_source"]["description"],

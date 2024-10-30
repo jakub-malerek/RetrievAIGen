@@ -1,3 +1,4 @@
 elasticsearch:
   indicies:
     ai_news: ai_news_01
+    tech_news: tech_news_01

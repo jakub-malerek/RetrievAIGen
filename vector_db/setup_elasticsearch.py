@@ -3,7 +3,7 @@ from pathlib import Path
 
 from elasticsearch import Elasticsearch
 
-from config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, ES_AI_NEWS_INDEX
+from config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, TECH_NEWS_INDEX
 from db_management.index_management import create_index
 
 es = Elasticsearch(
@@ -17,4 +17,4 @@ es = Elasticsearch(
 
 path_to_mapping = Path("db_management/schemas/news_articles_mapping.json")
 
-create_index(elastic_instance=es, index_name=ES_AI_NEWS_INDEX, mapping=path_to_mapping)
+create_index(elastic_instance=es, index_name=TECH_NEWS_INDEX, mapping=path_to_mapping)
