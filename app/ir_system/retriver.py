@@ -56,7 +56,19 @@ class InformationRetriever(BaseRetriever, BaseModel):
             "size": top_k,
             "query": {
                 "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": ["title^3", "description^2", "content"],
+                                "type": "best_fields",
+                                "operator": "or",
+                                "fuzziness": "AUTO"
+                            }
+                        }
+                    ],
                     "should": [
+                        # Vector similarity on content_vector
                         {
                             "knn": {
                                 "field": "content_vector",
@@ -65,6 +77,7 @@ class InformationRetriever(BaseRetriever, BaseModel):
                                 "num_candidates": 100
                             }
                         },
+                        # Vector similarity on description_vector
                         {
                             "knn": {
                                 "field": "description_vector",
@@ -73,6 +86,7 @@ class InformationRetriever(BaseRetriever, BaseModel):
                                 "num_candidates": 100
                             }
                         },
+                        # Vector similarity on title_vector
                         {
                             "knn": {
                                 "field": "title_vector",
@@ -80,21 +94,12 @@ class InformationRetriever(BaseRetriever, BaseModel):
                                 "k": top_k,
                                 "num_candidates": 100
                             }
-                        },
-                        {
-                            "multi_match": {
-                                "query": query,
-                                "fields": ["title^3", "description^2", "content"],
-                                "type": "best_fields",
-                                "operator": "or"
-                            }
                         }
                     ],
                     "minimum_should_match": 1
                 }
             }
         }
-
         response = self.es_client.search(index=self.index_name, body=search_query)
         hits = response["hits"]["hits"]
 
