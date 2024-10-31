@@ -30,24 +30,24 @@ class TechNewsChatbot:
         custom_prompt = PromptTemplate(
             input_variables=["context", "question"],
             template="""
-You are a helpful assistant specialized in providing the latest technology news.
+        You are a helpful assistant specialized in providing the latest technology news.
 
-Instructions:
-- Use the **provided context** to answer the question.
-- If you find **specific information** in the context, provide a concise and accurate answer using that information.
-- If the context doesn't contain the specific answer but includes **related information**, provide a general answer based on that.
-- If the context doesn't contain relevant information, politely inform the user that you couldn't find information on that subject.
+        Instructions:
+        - Answer the question using **information from the news articles** provided.
+        - If you find **specific information**, provide a concise and accurate answer.
+        - If you don't find exact information but have **related details**, share a general answer based on that.
+        - If you couldn't find any relevant information, politely inform the user without mentioning "context" or technical terms.
 
-{format_instructions}
+        {format_instructions}
 
-Context:
-{context}
+        News Articles:
+        {context}
 
-Question:
-{question}
+        Question:
+        {question}
 
-Answer:
-""",
+        Answer:
+        """,
             partial_variables={"format_instructions": ""}
         )
 
@@ -82,11 +82,50 @@ Answer:
         source_documents = result.get('source_documents', [])
 
         if not source_documents:
-            response = "I'm sorry, I couldn't find any information on that subject."
+            # No documents were retrieved
+            response = "I'm sorry, I couldn't find any information on that topic."
         else:
-            if "could not find specific information" in response.lower() or "does not provide specific information" in response.lower():
-                response = f"While I couldn't find exact information on your question, here's what I found:\n{response}"
+            # Check if the assistant's response is too generic or unhelpful
+            if "I couldn't find" in response.lower() or "does not provide" in response.lower():
+                # Try to extract some relevant information from the source documents
+                related_info = self.extract_related_info(source_documents)
+                if related_info:
+                    response = f"While I couldn't find exact details on that, here's some related information:\n\n{
+                        related_info}"
+                else:
+                    response = "I'm sorry, I couldn't find any specific information on that topic."
 
         self.chat_history.append((question, response))
 
         return response
+
+    def extract_related_info(self, documents):
+        """
+        Extracts related information from the documents.
+
+        Parameters:
+            documents (List[Document]): The documents to extract information from.
+
+        Returns:
+            str: A summary of related information.
+        """
+        # Combine the content of the documents
+        combined_content = "\n\n".join([doc.page_content for doc in documents])
+
+        # Use the LLM to summarize the related information
+        summary_prompt = f"""
+    You are an assistant helping to provide information based on the following text:
+
+    {combined_content}
+
+    Please provide a brief summary of any information related to cryptocurrency investments.
+
+    Summary:
+    """
+        response = self.llm(summary_prompt)
+
+        # If the response is meaningful, return it
+        if response.strip():
+            return response.strip()
+        else:
+            return None
