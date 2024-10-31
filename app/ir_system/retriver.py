@@ -13,7 +13,7 @@ class InformationRetriever(BaseRetriever, BaseModel):
     index_name: str = "tech_news_01"
 
     tags: List[str] = Field(default_factory=list)
-    log_file: str = "retriever_log.json"  # Path to the log file
+    log_file: str = "retriever_log.json"
 
     class Config:
         arbitrary_types_allowed = True
@@ -43,14 +43,13 @@ class InformationRetriever(BaseRetriever, BaseModel):
         }
 
         try:
-            # Append the log entry to the JSON file
-            with open(self.log_file, "a") as file:
-                file.write(json.dumps(log_entry, indent=4) + ",\n")
+            with open(self.log_file, "w") as file:
+                file.write(json.dumps(log_entry, indent=4))
         except Exception as e:
             print(f"Failed to write log: {e}")
 
-    def search(self, query: str, top_k: int = 5) -> List[Document]:
-        """Performs a combined vector and keyword search on Elasticsearch and returns Document objects."""
+    def search(self, query: str, top_k: int = 10) -> List[Document]:
+        """Performs a powerful hybrid search on Elasticsearch and returns Document objects."""
         query_vector = self.vectorize_query(query)
 
         search_query = {
@@ -59,22 +58,39 @@ class InformationRetriever(BaseRetriever, BaseModel):
                 "bool": {
                     "should": [
                         {
-                            "script_score": {
-                                "query": {"exists": {"field": "content_vector"}},
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'content_vector') + 1.2",
-                                    "params": {"query_vector": query_vector}
-                                }
+                            "knn": {
+                                "field": "content_vector",
+                                "query_vector": query_vector,
+                                "k": top_k,
+                                "num_candidates": 100
+                            }
+                        },
+                        {
+                            "knn": {
+                                "field": "description_vector",
+                                "query_vector": query_vector,
+                                "k": top_k,
+                                "num_candidates": 100
+                            }
+                        },
+                        {
+                            "knn": {
+                                "field": "title_vector",
+                                "query_vector": query_vector,
+                                "k": top_k,
+                                "num_candidates": 100
                             }
                         },
                         {
                             "multi_match": {
                                 "query": query,
-                                "fields": ["title^1.5", "description^1.2", "content"],
-                                "type": "best_fields"
+                                "fields": ["title^3", "description^2", "content"],
+                                "type": "best_fields",
+                                "operator": "or"
                             }
                         }
-                    ]
+                    ],
+                    "minimum_should_match": 1
                 }
             }
         }
@@ -82,11 +98,10 @@ class InformationRetriever(BaseRetriever, BaseModel):
         response = self.es_client.search(index=self.index_name, body=search_query)
         hits = response["hits"]["hits"]
 
-        # Merge relevant content parts for better context
         results = [
             Document(
-                page_content=f"{hit['_source']['title']}\n\n{
-                    hit['_source']['description']}\n\n{hit['_source']['content']}",
+                page_content=f"{hit['_source'].get('title', '')}\n\n{hit['_source'].get('description', '')}\n\n{
+                    hit['_source'].get('content', '')}",
                 metadata={
                     "author": hit["_source"].get("author", "Unknown"),
                     "publishedAt": hit["_source"].get("publishedAt"),
@@ -99,7 +114,6 @@ class InformationRetriever(BaseRetriever, BaseModel):
             for hit in hits
         ]
 
-        # Log the retrieved documents
         self.log_documents(query, results)
 
         return results
