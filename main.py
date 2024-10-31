@@ -1,12 +1,13 @@
-import json
 from app.ir_system.system import get_retriever
-from app.config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD
+from app.chatbot.bot import TechNewsChatbot
+from app.config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, OPENAI_API_KEY
 
 retriever = get_retriever(ES_HOST, ES_PORT, ES_USER, ES_PASSWORD)
 
-prompt = "Any updates from world of AI?"
 
-results = retriever.search(prompt, top_k=5)
+chatbot = TechNewsChatbot(api_key=OPENAI_API_KEY, retriever=retriever)
 
-with open("results.json", mode="wt") as file:
-    json.dump(results, file, indent=4)
+
+question = "New from world of AI"
+answer = chatbot.ask_question(question)
+print("Answer:", answer)

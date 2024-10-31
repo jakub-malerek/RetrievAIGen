@@ -30,24 +30,24 @@ class TechNewsChatbot:
         custom_prompt = PromptTemplate(
             input_variables=["context", "question"],
             template="""
-        You are a helpful assistant specialized in providing the latest technology news.
+You are a helpful assistant specialized in providing the latest technology news.
 
-        Instructions:
-        - Answer the question using **information from the news articles** provided.
-        - If you find **specific information**, provide a concise and accurate answer.
-        - If you don't find exact information but have **related details**, share a general answer based on that.
-        - If you couldn't find any relevant information, politely inform the user without mentioning "context" or technical terms.
+Instructions:
+- Answer the question using **information from the news articles** provided.
+- If you find **specific information**, provide a concise and accurate answer.
+- If you don't find exact information but have **related details**, share a general answer based on that.
+- If you couldn't find any relevant information, politely inform the user without mentioning "context" or technical terms.
 
-        {format_instructions}
+{format_instructions}
 
-        News Articles:
-        {context}
+News Articles:
+{context}
 
-        Question:
-        {question}
+Question:
+{question}
 
-        Answer:
-        """,
+Answer:
+""",
             partial_variables={"format_instructions": ""}
         )
 
@@ -82,50 +82,62 @@ class TechNewsChatbot:
         source_documents = result.get('source_documents', [])
 
         if not source_documents:
-            # No documents were retrieved
             response = "I'm sorry, I couldn't find any information on that topic."
         else:
-            # Check if the assistant's response is too generic or unhelpful
-            if "I couldn't find" in response.lower() or "does not provide" in response.lower():
-                # Try to extract some relevant information from the source documents
-                related_info = self.extract_related_info(source_documents)
-                if related_info:
-                    response = f"While I couldn't find exact details on that, here's some related information:\n\n{
-                        related_info}"
-                else:
-                    response = "I'm sorry, I couldn't find any specific information on that topic."
+            related_info = self.extract_related_info(source_documents, question)
+            if related_info:
+                response = related_info
+            else:
+                response = "I'm sorry, I couldn't find any specific information on that topic."
 
         self.chat_history.append((question, response))
 
         return response
 
-    def extract_related_info(self, documents):
+    def extract_related_info(self, documents, question):
         """
         Extracts related information from the documents.
 
         Parameters:
             documents (List[Document]): The documents to extract information from.
+            question (str): The user's question.
 
         Returns:
             str: A summary of related information.
         """
-        # Combine the content of the documents
-        combined_content = "\n\n".join([doc.page_content for doc in documents])
+        response_parts = []
+        for doc in documents:
+            content = doc.page_content
+            metadata = doc.metadata
+            url = metadata.get('url', '')
+            source_name = metadata.get('source_name', 'Unknown Source')
 
-        # Use the LLM to summarize the related information
-        summary_prompt = f"""
-    You are an assistant helping to provide information based on the following text:
+            summary_prompt = f"""
+You are an assistant helping to provide information based on the following news article:
 
-    {combined_content}
+Article Content:
+{content}
 
-    Please provide a brief summary of any information related to cryptocurrency investments.
+Based on the article above, please provide a brief summary of any information related to the following question:
 
-    Summary:
-    """
-        response = self.llm(summary_prompt)
+"{question}"
 
-        # If the response is meaningful, return it
-        if response.strip():
-            return response.strip()
+Your summary should be concise and mention any relevant details from the article.
+
+Summary:
+"""
+            summary_response = self.llm(summary_prompt)
+            if hasattr(summary_response, 'content'):
+                summary_text = summary_response.content.strip()
+            else:
+                summary_text = str(summary_response).strip()
+
+            if summary_text and "no relevant information" not in summary_text.lower():
+                response_parts.append(f"{summary_text}\nFor more information, you can read here: {url}")
+            else:
+                continue
+
+        if response_parts:
+            return "\n\n".join(response_parts)
         else:
             return None

@@ -68,7 +68,6 @@ class InformationRetriever(BaseRetriever, BaseModel):
                         }
                     ],
                     "should": [
-                        # Vector similarity on content_vector
                         {
                             "knn": {
                                 "field": "content_vector",
@@ -77,7 +76,6 @@ class InformationRetriever(BaseRetriever, BaseModel):
                                 "num_candidates": 100
                             }
                         },
-                        # Vector similarity on description_vector
                         {
                             "knn": {
                                 "field": "description_vector",
@@ -86,7 +84,6 @@ class InformationRetriever(BaseRetriever, BaseModel):
                                 "num_candidates": 100
                             }
                         },
-                        # Vector similarity on title_vector
                         {
                             "knn": {
                                 "field": "title_vector",
