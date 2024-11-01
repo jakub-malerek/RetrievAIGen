@@ -19,6 +19,8 @@ class TechNewsChatbot:
         self.retriever = retriever
         self.qa_chain = None
         self.chat_history = []
+        self.is_first_query = True  # Flag to track if IR has been used
+
         if retriever:
             self.setup_qa_chain()
 
@@ -29,16 +31,17 @@ class TechNewsChatbot:
 
         custom_prompt = PromptTemplate(
             input_variables=["context", "question"],
-            template="""
-You are a helpful assistant specialized in providing the latest technology news.
+            template="""You are a helpful assistant specialized in providing the latest technology news.
 
 Instructions:
-- Answer the question using **information from the news articles** provided.
-- If you find **specific information**, provide a concise and accurate answer.
-- If you don't find exact information but have **related details**, share a general answer based on that.
-- If you couldn't find any relevant information, politely inform the user without mentioning "context" or technical terms.
-
-{format_instructions}
+- Based on the provided news articles, create a response in a numbered list format.
+- For each number:
+    - Start with the number (e.g., "1.").
+    - Provide a concise but thorough summary of a relevant topic from the articles.
+    - Exhaust all the information you can infer from the article about that topic.
+    - After the summary, politely invite the user to read more by providing the source URL.
+- The conversation should be professional but kind.
+- Ensure each point is clear and informative.
 
 News Articles:
 {context}
@@ -47,8 +50,7 @@ Question:
 {question}
 
 Answer:
-""",
-            partial_variables={"format_instructions": ""}
+"""
         )
 
         self.qa_chain = ConversationalRetrievalChain.from_llm(
@@ -72,72 +74,83 @@ Answer:
         if not self.qa_chain:
             raise ValueError("QA chain is not set up. Please provide a retriever and call setup_qa_chain().")
 
-        input_data = {
-            "question": question,
-            "chat_history": self.chat_history
-        }
+        if self.is_first_query:
+            # Use information retrieval for the first query
+            input_data = {
+                "question": question,
+                "chat_history": self.chat_history
+            }
 
-        result = self.qa_chain(input_data)
-        response = result['answer']
-        source_documents = result.get('source_documents', [])
+            # Get the response from the QA chain
+            result = self.qa_chain(input_data)
+            source_documents = result.get('source_documents', [])
 
-        if not source_documents:
-            response = "I'm sorry, I couldn't find any information on that topic."
-        else:
-            related_info = self.extract_related_info(source_documents, question)
-            if related_info:
-                response = related_info
+            # Handle the case where no relevant documents were found
+            if not source_documents:
+                response = "I'm sorry, I couldn't find any information on that topic."
             else:
-                response = "I'm sorry, I couldn't find any specific information on that topic."
+                # Prepare the context with content and URLs
+                context_with_urls = ""
+                for doc in source_documents:
+                    content = doc.page_content
+                    url = doc.metadata.get('url', 'URL not available')
+                    context_with_urls += f"Article Content:\n{content}\nSource URL: {url}\n\n"
 
+                # Create a new prompt including the context with URLs
+                new_prompt = f"""
+You are a helpful assistant specialized in providing the latest technology news.
+
+Instructions:
+- Based on the provided news articles, create a response in a numbered list format.
+- For each number:
+    - Start with the number (e.g., "1.").
+    - Provide a concise but thorough summary of a relevant topic from the articles.
+    - Exhaust all the information you can infer from the article about that topic.
+    - After the summary, politely invite the user to read more by providing the source URL.
+- The conversation should be professional but kind.
+- Ensure each point is clear and informative.
+
+News Articles:
+{context_with_urls}
+
+Question:
+{question}
+
+Answer:
+"""
+
+                # Generate the response using the LLM
+                summary_response = self.llm(new_prompt)
+                if hasattr(summary_response, 'content'):
+                    response = summary_response.content.strip()
+                else:
+                    response = str(summary_response).strip()
+
+            # Mark that the first query has been processed
+            self.is_first_query = False
+        else:
+            # For subsequent queries, generate the response using chat history
+            # Use a simplified prompt to continue the conversation
+            conversation_context = "\n".join(
+                f"User: {q}\nAssistant: {a}" for q, a in self.chat_history
+            )
+            new_prompt = f"""
+Continue the conversation based on the following history:
+
+{conversation_context}
+
+User: {question}
+Assistant:
+"""
+
+            # Generate the response using the LLM
+            continuation_response = self.llm(new_prompt)
+            if hasattr(continuation_response, 'content'):
+                response = continuation_response.content.strip()
+            else:
+                response = str(continuation_response).strip()
+
+        # Append the conversation to the chat history
         self.chat_history.append((question, response))
 
         return response
-
-    def extract_related_info(self, documents, question):
-        """
-        Extracts related information from the documents.
-
-        Parameters:
-            documents (List[Document]): The documents to extract information from.
-            question (str): The user's question.
-
-        Returns:
-            str: A summary of related information.
-        """
-        response_parts = []
-        for doc in documents:
-            content = doc.page_content
-            metadata = doc.metadata
-            url = metadata.get('url', '')
-            source_name = metadata.get('source_name', 'Unknown Source')
-
-            summary_prompt = f"""
-You are an assistant helping to provide information based on the following news article:
-
-Article Content:
-{content}
-
-Based on the article above, please provide a brief summary of any information related to the following question:
-
-"{question}"
-
-Your summary should be concise and mention any relevant details from the article.
-
-Summary:
-"""
-            summary_response = self.llm(summary_prompt)
-            if hasattr(summary_response, 'content'):
-                summary_text = summary_response.content.strip()
-            else:
-                summary_text = str(summary_response).strip()
-
-            if summary_text and "no relevant information" not in summary_text.lower():
-                response_parts.append(f"{summary_text}\nFor more information, you can read here: {url}")
-            else:
-                continue
-
-        if response_parts:
-            return "\n\n".join(response_parts)
-        else:
-            return None
