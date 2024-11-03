@@ -1,26 +1,37 @@
+import os
+import datetime
 from typing import List, Dict
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import Document
 from app.chatbot.intent_classifier import RunInformationRetrievalClassifier
+from app.chatbot.personas import PersonaManager
 
 
 class TechNewsChatbot:
-    def __init__(self, api_key: str, retriever=None):
+    def __init__(self, api_key: str, retriever=None, persona="non-technical", debug=False):
         """
-        Initializes the Tech News chatbot.
+        Initializes the Tech News chatbot with a specified persona and debug mode.
 
         Parameters:
             api_key (str): The API key for OpenAI.
             retriever: The information retriever instance (optional).
+            persona (str): The user persona, either "technical" or "non-technical".
+            debug (bool): If True, writes IR system output to a file for debugging purposes.
         """
         self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4", temperature=0.2)
         self.retriever = retriever
         self.chat_history = []
         self.ir_classifier = RunInformationRetrievalClassifier()
+        self.persona_manager = PersonaManager(persona)
+        self.debug = debug
+        self.debug_dir = "debug_logs"
+
+        if self.debug:
+            os.makedirs(self.debug_dir, exist_ok=True)
 
     def ask_question(self, question: str) -> str:
         """
-        Processes the user's question and generates an appropriate response.
+        Processes the user's question and generates an appropriate response based on the persona.
 
         Parameters:
             question (str): The user's question.
@@ -29,6 +40,7 @@ class TechNewsChatbot:
             str: The chatbot's response.
         """
         self.chat_history.append({"role": "user", "content": question})
+
         use_ir = self.ir_classifier.classify(question)
         print(f"Classifier returned: {use_ir}")
 
@@ -43,7 +55,7 @@ class TechNewsChatbot:
 
     def handle_ir_question(self, question: str) -> str:
         """
-        Handles questions that require information retrieval.
+        Handles questions that require information retrieval and tailors the response based on the persona.
 
         Parameters:
             question (str): The user's question.
@@ -53,88 +65,64 @@ class TechNewsChatbot:
         """
         retrieved_docs = self.retriever.get_relevant_documents(question)
 
-        relevant_docs = self.filter_relevant_documents(question, retrieved_docs)
+        if self.debug:
+            self.write_ir_output_to_file(question, retrieved_docs)
 
-        if not relevant_docs:
+        if not retrieved_docs:
             return self.handle_no_relevant_info(question)
-        else:
-            return self.generate_response_with_docs(question, relevant_docs)
 
-    def filter_relevant_documents(self, question: str, documents: List[Document]) -> List[Document]:
+        conversation = self.format_chat_history()
+
+        formatted_docs = [
+            f"{idx + 1}. {doc.page_content}\nSource URL: {doc.metadata.get('url', 'URL not available')}"
+            for idx, doc in enumerate(retrieved_docs)
+        ]
+        context = "\n\n".join(formatted_docs)
+
+        prompt_template = self.persona_manager.get_ir_prompt_template()
+        prompt = prompt_template.format(conversation=conversation, context=context, question=question)
+
+        response = self.llm.invoke(prompt).content.strip()
+        return response
+
+    def write_ir_output_to_file(self, question: str, documents: List[Document]):
         """
-        Filters documents to find those relevant to the question.
+        Writes the IR system output to a file for debugging purposes.
 
         Parameters:
             question (str): The user's question.
-            documents (List[Document]): Retrieved documents.
-
-        Returns:
-            List[Document]: Relevant documents.
+            documents (List[Document]): The list of retrieved documents.
         """
-        relevant_docs = []
-        for doc in documents:
-            prompt = f"""
-You are an AI assistant helping to determine document relevance.
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(self.debug_dir, f"ir_output_{timestamp}.txt")
 
-Question: {question}
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(f"Question: {question}\n\n")
+            f.write("Retrieved Documents:\n\n")
+            for idx, doc in enumerate(documents, start=1):
+                url = doc.metadata.get('url', 'URL not available')
+                f.write(f"Document {idx}:\n")
+                f.write(f"Content:\n{doc.page_content}\n")
+                f.write(f"Source URL: {url}\n")
+                f.write("\n" + "-" * 80 + "\n\n")
 
-Document Content:
-{doc.page_content}
+        print(f"IR system output written to {filename}")
 
-Is this document relevant to answering the question? Respond with 'yes' or 'no'.
-"""
-            relevance_response = self.llm.invoke(prompt).content.strip().lower()
-            if 'yes' in relevance_response:
-                relevant_docs.append(doc)
-
-        return relevant_docs
-
-    def generate_response_with_docs(self, question: str, documents: List[Document]) -> str:
+    def handle_general_question(self, question: str) -> str:
         """
-        Generates a response using the relevant documents.
+        Handles general questions that do not require IR and tailors the response based on the persona.
 
         Parameters:
             question (str): The user's question.
-            documents (List[Document]): Relevant documents.
 
         Returns:
             str: The chatbot's response.
         """
         conversation = self.format_chat_history()
 
-        formatted_docs = []
-        for idx, doc in enumerate(documents, start=1):
-            url = doc.metadata.get('url', None)
-            if url:
-                formatted_docs.append(f"{idx}. {doc.page_content}\nSource URL: {url}")
-            else:
-                formatted_docs.append(f"{idx}. {doc.page_content}\nSource URL: URL not available")
+        prompt_template = self.persona_manager.get_general_prompt_template()
+        prompt = prompt_template.format(conversation=conversation, question=question)
 
-        context = "\n\n".join(formatted_docs)
-
-        prompt = f"""
-{conversation}
-
-You are a helpful assistant specializing in technology, programming, and tech industry news.
-
-Use the following articles to answer the user's question:
-
-{context}
-
-Question: {question}
-
-Instructions:
-- Summarize the most relevant information from the articles that answers the question.
-- Only include information up to your knowledge cutoff in September 2021.
-- Do not mention future dates or events beyond 2021.
-- If the question is not related to technology or programming, politely refuse to answer and remind the user of your focus area.
-- Present the information in a clear and concise manner.
-- If multiple points are relevant, list them numerically.
-- At the end of each point, invite the user to read more by providing the source URL.
-- Ensure all information is accurate and verified.
-
-Answer:
-"""
         response = self.llm.invoke(prompt).content.strip()
         return response
 
@@ -150,55 +138,9 @@ Answer:
         """
         conversation = self.format_chat_history()
 
-        prompt = f"""
-{conversation}
+        prompt_template = self.persona_manager.get_no_relevant_info_template()
+        prompt = prompt_template.format(conversation=conversation, question=question)
 
-You are a knowledgeable assistant specializing in technology and programming.
-
-The user asked: "{question}"
-
-Unfortunately, no relevant information was found in the latest articles.
-
-Instructions:
-- Provide a helpful answer based on your general knowledge up to September 2021.
-- Avoid mentioning any information beyond your knowledge cutoff.
-- If the question is not related to technology or programming, politely refuse to answer and remind the user of your focus area.
-- If the question is about recent events, inform the user that you don't have updated information.
-- Offer assistance with other tech-related topics if appropriate.
-
-Answer:
-"""
-        response = self.llm.invoke(prompt).content.strip()
-        return response
-
-    def handle_general_question(self, question: str) -> str:
-        """
-        Handles general questions that do not require IR.
-
-        Parameters:
-            question (str): The user's question.
-
-        Returns:
-            str: The chatbot's response.
-        """
-        conversation = self.format_chat_history()
-
-        prompt = f"""
-{conversation}
-
-You are a helpful assistant specializing in technology and programming.
-
-Instructions:
-- Only answer questions related to technology, programming, or the tech industry.
-- If the question is not related to these areas, politely refuse to answer and remind the user of your expertise.
-- Provide a clear and concise answer based on verified information up to your knowledge cutoff in September 2021.
-- Avoid including any information that you're not sure about.
-- Do not mention future events or speculate about the future.
-- Be informative and helpful, maintaining a friendly and professional tone.
-
-User: {question}
-Assistant:
-"""
         response = self.llm.invoke(prompt).content.strip()
         return response
 
