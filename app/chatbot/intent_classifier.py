@@ -1,45 +1,29 @@
-"""This module implements the InformationRetrievalClassifier class for determining whether to perform information retrieval for LLM context.
-    This is major component of Agentic AI's chatbot system."""
+"""This module implements classifiers for different intents of user queries.
+It is major component of Agentic Workflows, which is a conversational AI platform.
+Based on the user query, the classifier determines whether the query requires external system to run"""
 
-from transformers import pipeline
+import torch
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
-class InformationRetrievalClassifier:
-    def __init__(self, model_name="facebook/bart-large-mnli", device=-1):
+class RunInformationRetrievalClassifier:
+    def __init__(self, model_name="google/flan-t5-large"):
         """
-        Initializes the zero-shot classification pipeline for determining whether to perform information retrieval.
+        Initializes the classifier using instruction-tuned model like FLAN-T5 Large,
+        with support for running on a CUDA-enabled GPU.
 
         Args:
-            model_name (str): The name of the pre-trained model to use.
-            device (int, optional): Device to run the model on. -1 for CPU, >=0 for GPU device index.
+            model_name (str): The name of the model to use.
         """
-        self.classifier = pipeline("zero-shot-classification", model=model_name, device=device)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-    def heuristic_requires_ir(self, user_input):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = self.model.to(self.device)
+
+    def classify(self, user_input):
         """
-        Applies heuristic rules to quickly determine if information retrieval is needed.
-
-        Args:
-            user_input (str): The user's input text.
-
-        Returns:
-            bool: True if heuristics suggest IR is required, False otherwise.
-        """
-        keywords = [
-            "latest news", "recent updates", "new in tech", "technology news",
-            "tech headlines", "AI advancements", "software releases", "tech events",
-            "tech news", "technology updates", "recent tech developments",
-            "what's new in", "news about", "updates on", "latest in", "breaking news"
-        ]
-        user_input_lower = user_input.lower()
-        for keyword in keywords:
-            if keyword in user_input_lower:
-                return True
-        return False
-
-    def requires_information_retrieval(self, user_input):
-        """
-        Determines whether information retrieval is required for the user's input.
+        Classifies whether the user input requires information retrieval.
 
         Args:
             user_input (str): The user's input text.
@@ -47,13 +31,27 @@ class InformationRetrievalClassifier:
         Returns:
             str: 'yes' if information retrieval is required, 'no' otherwise.
         """
-        if self.heuristic_requires_ir(user_input):
-            return "yes"
-        else:
-            candidate_labels = ["request for tech news", "casual conversation", "general question"]
-            result = self.classifier(user_input, candidate_labels)
-            top_label = result['labels'][0]
-            if top_label == "request for tech news":
-                return "yes"
-            else:
-                return "no"
+        instruction = (
+            "You are an AI assistant. Determine if the following user query requires retrieving "
+            "the latest information, such as technology news, recent updates, or breaking news. "
+            "Respond with 'yes' if the query asks for recent or time-sensitive information, "
+            "otherwise respond with 'no'.\n\n"
+            "Examples:\n"
+            "1. User query: 'What are the latest updates in AI research?' -> yes\n"
+            "2. User query: 'Explain how neural networks work.' -> no\n"
+            "3. User query: 'What happened last week in cybersecurity?' -> yes\n"
+            "4. User query: 'Define blockchain technology.' -> no\n"
+            "5. User query: 'Any news on the latest iPhone release?' -> yes\n"
+            "6. User query: 'How does a quantum computer work?' -> no\n"
+            "7. User query: 'What’s trending in tech this month?' -> yes\n"
+            "8. User query: 'Describe the process of software development.' -> no\n"
+            "9. User query: 'Recent advancements in self-driving cars?' -> yes\n"
+            "10. User query: 'What is the meaning of IoT?' -> no\n\n"
+            f"User query: {user_input}"
+        )
+
+        inputs = self.tokenizer(instruction, return_tensors="pt").to(self.device)
+        outputs = self.model.generate(**inputs, max_length=10, num_beams=5, early_stopping=True)
+
+        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response.strip().lower()
