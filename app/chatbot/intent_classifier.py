@@ -1,7 +1,3 @@
-"""This module implements classifiers for different intents of user queries.
-It is major component of Agentic Workflows, which is a conversational AI platform.
-Based on the user query, the classifier determines whether the query requires external system to run"""
-
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
@@ -9,7 +5,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 class RunInformationRetrievalClassifier:
     def __init__(self, model_name="google/flan-t5-large"):
         """
-        Initializes the classifier using instruction-tuned model like FLAN-T5 Large,
+        Initializes the classifier using an instruction-tuned model like FLAN-T5 Large,
         with support for running on a CUDA-enabled GPU.
 
         Args:
@@ -23,18 +19,20 @@ class RunInformationRetrievalClassifier:
 
     def classify(self, user_input):
         """
-        Classifies whether the user input requires information retrieval.
+        Classifies whether the user input requires information retrieval for tech-related content.
 
         Args:
             user_input (str): The user's input text.
 
         Returns:
-            str: 'yes' if information retrieval is required, 'no' otherwise.
+            str: 'yes' if the query asks for tech-related, time-sensitive information requiring IR,
+                 'no' otherwise.
         """
         instruction = (
             "You are an AI assistant. Determine if the following user query requires retrieving "
-            "the latest information, such as technology news, recent updates, or breaking news. "
-            "Respond with 'yes' if the query asks for recent or time-sensitive information, "
+            "the latest information, such as technology news, recent updates, or breaking news, "
+            "and ensure the query is related to technology, programming, or the tech industry. "
+            "Respond with 'yes' if the query both asks for recent or time-sensitive tech-related information, "
             "otherwise respond with 'no'.\n\n"
             "Examples:\n"
             "1. User query: 'What are the latest updates in AI research?' -> yes\n"
@@ -46,7 +44,12 @@ class RunInformationRetrievalClassifier:
             "7. User query: 'What’s trending in tech this month?' -> yes\n"
             "8. User query: 'Describe the process of software development.' -> no\n"
             "9. User query: 'Recent advancements in self-driving cars?' -> yes\n"
-            "10. User query: 'What is the meaning of IoT?' -> no\n\n"
+            "10. User query: 'What is the meaning of IoT?' -> no\n"
+            "11. User query: 'Can you give me the latest trends in renewable energy?' -> no\n"
+            "12. User query: 'What’s new in the world of quantum computing?' -> yes\n"
+            "13. User query: 'How do I bake a cake?' -> no\n"
+            "14. User query: 'Any breaking news on cybersecurity threats?' -> yes\n"
+            "15. User query: 'Tell me about the latest developments in AI ethics.' -> yes\n\n"
             f"User query: {user_input}"
         )
 

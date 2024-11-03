@@ -28,10 +28,7 @@ class TechNewsChatbot:
         Returns:
             str: The chatbot's response.
         """
-        # Update chat history with the user's question
         self.chat_history.append({"role": "user", "content": question})
-
-        # Determine if IR is needed
         use_ir = self.ir_classifier.classify(question)
         print(f"Classifier returned: {use_ir}")
 
@@ -40,7 +37,6 @@ class TechNewsChatbot:
         else:
             response = self.handle_general_question(question)
 
-        # Update chat history with the assistant's response
         self.chat_history.append({"role": "assistant", "content": response})
 
         return response
@@ -55,17 +51,13 @@ class TechNewsChatbot:
         Returns:
             str: The chatbot's response.
         """
-        # Retrieve documents
         retrieved_docs = self.retriever.get_relevant_documents(question)
 
-        # Determine relevance of documents
         relevant_docs = self.filter_relevant_documents(question, retrieved_docs)
 
         if not relevant_docs:
-            # No relevant documents found
             return self.handle_no_relevant_info(question)
         else:
-            # Generate response using relevant documents
             return self.generate_response_with_docs(question, relevant_docs)
 
     def filter_relevant_documents(self, question: str, documents: List[Document]) -> List[Document]:
@@ -81,7 +73,6 @@ class TechNewsChatbot:
         """
         relevant_docs = []
         for doc in documents:
-            # Check relevance using the LLM
             prompt = f"""
 You are an AI assistant helping to determine document relevance.
 
@@ -109,10 +100,8 @@ Is this document relevant to answering the question? Respond with 'yes' or 'no'.
         Returns:
             str: The chatbot's response.
         """
-        # Prepare conversation context
         conversation = self.format_chat_history()
 
-        # Prepare context for the LLM
         formatted_docs = []
         for idx, doc in enumerate(documents, start=1):
             url = doc.metadata.get('url', None)
@@ -123,11 +112,10 @@ Is this document relevant to answering the question? Respond with 'yes' or 'no'.
 
         context = "\n\n".join(formatted_docs)
 
-        # Create a prompt for the LLM
         prompt = f"""
 {conversation}
 
-You are a helpful assistant providing technology news up to September 2021.
+You are a helpful assistant specializing in technology, programming, and tech industry news.
 
 Use the following articles to answer the user's question:
 
@@ -139,6 +127,7 @@ Instructions:
 - Summarize the most relevant information from the articles that answers the question.
 - Only include information up to your knowledge cutoff in September 2021.
 - Do not mention future dates or events beyond 2021.
+- If the question is not related to technology or programming, politely refuse to answer and remind the user of your focus area.
 - Present the information in a clear and concise manner.
 - If multiple points are relevant, list them numerically.
 - At the end of each point, invite the user to read more by providing the source URL.
@@ -159,14 +148,12 @@ Answer:
         Returns:
             str: The chatbot's response.
         """
-        # Prepare conversation context
         conversation = self.format_chat_history()
 
-        # Provide a general answer or inform the user
         prompt = f"""
 {conversation}
 
-You are a knowledgeable assistant.
+You are a knowledgeable assistant specializing in technology and programming.
 
 The user asked: "{question}"
 
@@ -175,8 +162,9 @@ Unfortunately, no relevant information was found in the latest articles.
 Instructions:
 - Provide a helpful answer based on your general knowledge up to September 2021.
 - Avoid mentioning any information beyond your knowledge cutoff.
-- If the question is about recent events, politely inform the user that you don't have updated information.
-- Offer assistance with other topics if appropriate.
+- If the question is not related to technology or programming, politely refuse to answer and remind the user of your focus area.
+- If the question is about recent events, inform the user that you don't have updated information.
+- Offer assistance with other tech-related topics if appropriate.
 
 Answer:
 """
@@ -193,21 +181,20 @@ Answer:
         Returns:
             str: The chatbot's response.
         """
-        # Prepare conversation context
         conversation = self.format_chat_history()
 
-        # Continue the conversation using general knowledge
         prompt = f"""
 {conversation}
 
-You are a helpful assistant.
+You are a helpful assistant specializing in technology and programming.
 
 Instructions:
+- Only answer questions related to technology, programming, or the tech industry.
+- If the question is not related to these areas, politely refuse to answer and remind the user of your expertise.
 - Provide a clear and concise answer based on verified information up to your knowledge cutoff in September 2021.
 - Avoid including any information that you're not sure about.
 - Do not mention future events or speculate about the future.
-- Be informative and helpful.
-- Maintain a friendly and professional tone.
+- Be informative and helpful, maintaining a friendly and professional tone.
 
 User: {question}
 Assistant:
