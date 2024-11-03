@@ -1,9 +1,7 @@
-from langchain.chains import ConversationalRetrievalChain
-try:
-    from langchain_openai import ChatOpenAI
-except ImportError:
-    from langchain_community.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
+from typing import List, Dict
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import Document
+from app.chatbot.intent_classifier import RunInformationRetrievalClassifier
 
 
 class TechNewsChatbot:
@@ -15,131 +13,218 @@ class TechNewsChatbot:
             api_key (str): The API key for OpenAI.
             retriever: The information retriever instance (optional).
         """
-        self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4")
+        self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4", temperature=0.2)
         self.retriever = retriever
-        self.qa_chain = None
         self.chat_history = []
-        self.is_first_query = True
-
-        if retriever:
-            self.setup_qa_chain()
-
-    def setup_qa_chain(self):
-        """Sets up the ConversationalRetrievalChain with a custom prompt."""
-        if not self.retriever:
-            raise ValueError("Retriever is not set. Please provide a retriever to set up the QA chain.")
-
-        custom_prompt = PromptTemplate(
-            input_variables=["context", "question"],
-            template="""You are a helpful assistant specialized in providing the latest technology news.
-
-Instructions:
-- Based on the provided news articles, create a response in a numbered list format.
-- For each number:
-    - Start with the number (e.g., "1.").
-    - Provide a concise but thorough summary of a relevant topic from the articles.
-    - Exhaust all the information you can infer from the article about that topic.
-    - After the summary, politely invite the user to read more by providing the source URL.
-- The conversation should be professional but kind.
-- Ensure each point is clear and informative.
-
-News Articles:
-{context}
-
-Question:
-{question}
-
-Answer:
-"""
-        )
-
-        self.qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=self.retriever,
-            return_source_documents=True,
-            max_tokens_limit=3500,
-            combine_docs_chain_kwargs={'prompt': custom_prompt}
-        )
+        self.ir_classifier = RunInformationRetrievalClassifier()
 
     def ask_question(self, question: str) -> str:
         """
-        Asks a question and returns the answer.
+        Processes the user's question and generates an appropriate response.
 
         Parameters:
-            question (str): The question to ask.
+            question (str): The user's question.
 
         Returns:
-            str: The answer from the chatbot.
+            str: The chatbot's response.
         """
-        if not self.qa_chain:
-            raise ValueError("QA chain is not set up. Please provide a retriever and call setup_qa_chain().")
+        # Update chat history with the user's question
+        self.chat_history.append({"role": "user", "content": question})
 
-        if self.is_first_query:
-            input_data = {
-                "question": question,
-                "chat_history": self.chat_history
-            }
+        # Determine if IR is needed
+        use_ir = self.ir_classifier.classify(question)
+        print(f"Classifier returned: {use_ir}")
 
-            result = self.qa_chain(input_data)
-            source_documents = result.get('source_documents', [])
+        if use_ir == "yes" and self.retriever is not None:
+            response = self.handle_ir_question(question)
+        else:
+            response = self.handle_general_question(question)
 
-            if not source_documents:
-                response = "I'm sorry, I couldn't find any information on that topic."
+        # Update chat history with the assistant's response
+        self.chat_history.append({"role": "assistant", "content": response})
+
+        return response
+
+    def handle_ir_question(self, question: str) -> str:
+        """
+        Handles questions that require information retrieval.
+
+        Parameters:
+            question (str): The user's question.
+
+        Returns:
+            str: The chatbot's response.
+        """
+        # Retrieve documents
+        retrieved_docs = self.retriever.get_relevant_documents(question)
+
+        # Determine relevance of documents
+        relevant_docs = self.filter_relevant_documents(question, retrieved_docs)
+
+        if not relevant_docs:
+            # No relevant documents found
+            return self.handle_no_relevant_info(question)
+        else:
+            # Generate response using relevant documents
+            return self.generate_response_with_docs(question, relevant_docs)
+
+    def filter_relevant_documents(self, question: str, documents: List[Document]) -> List[Document]:
+        """
+        Filters documents to find those relevant to the question.
+
+        Parameters:
+            question (str): The user's question.
+            documents (List[Document]): Retrieved documents.
+
+        Returns:
+            List[Document]: Relevant documents.
+        """
+        relevant_docs = []
+        for doc in documents:
+            # Check relevance using the LLM
+            prompt = f"""
+You are an AI assistant helping to determine document relevance.
+
+Question: {question}
+
+Document Content:
+{doc.page_content}
+
+Is this document relevant to answering the question? Respond with 'yes' or 'no'.
+"""
+            relevance_response = self.llm.invoke(prompt).content.strip().lower()
+            if 'yes' in relevance_response:
+                relevant_docs.append(doc)
+
+        return relevant_docs
+
+    def generate_response_with_docs(self, question: str, documents: List[Document]) -> str:
+        """
+        Generates a response using the relevant documents.
+
+        Parameters:
+            question (str): The user's question.
+            documents (List[Document]): Relevant documents.
+
+        Returns:
+            str: The chatbot's response.
+        """
+        # Prepare conversation context
+        conversation = self.format_chat_history()
+
+        # Prepare context for the LLM
+        formatted_docs = []
+        for idx, doc in enumerate(documents, start=1):
+            url = doc.metadata.get('url', None)
+            if url:
+                formatted_docs.append(f"{idx}. {doc.page_content}\nSource URL: {url}")
             else:
-                context_with_urls = ""
-                for doc in source_documents:
-                    content = doc.page_content
-                    url = doc.metadata.get('url', 'URL not available')
-                    context_with_urls += f"Article Content:\n{content}\nSource URL: {url}\n\n"
+                formatted_docs.append(f"{idx}. {doc.page_content}\nSource URL: URL not available")
 
-                new_prompt = f"""
-You are a helpful assistant specialized in providing the latest technology news.
+        context = "\n\n".join(formatted_docs)
+
+        # Create a prompt for the LLM
+        prompt = f"""
+{conversation}
+
+You are a helpful assistant providing technology news up to September 2021.
+
+Use the following articles to answer the user's question:
+
+{context}
+
+Question: {question}
 
 Instructions:
-- Based on the provided news articles, create a response in a numbered list format.
-- For each number:
-    - Start with the number (e.g., "1.").
-    - Provide a concise but thorough summary of a relevant topic from the articles.
-    - Exhaust all the information you can infer from the article about that topic.
-    - After the summary, politely invite the user to read more by providing the source URL.
-- The conversation should be professional but kind.
-- Ensure each point is clear and informative.
-
-News Articles:
-{context_with_urls}
-
-Question:
-{question}
+- Summarize the most relevant information from the articles that answers the question.
+- Only include information up to your knowledge cutoff in September 2021.
+- Do not mention future dates or events beyond 2021.
+- Present the information in a clear and concise manner.
+- If multiple points are relevant, list them numerically.
+- At the end of each point, invite the user to read more by providing the source URL.
+- Ensure all information is accurate and verified.
 
 Answer:
 """
+        response = self.llm.invoke(prompt).content.strip()
+        return response
 
-                summary_response = self.llm(new_prompt)
-                if hasattr(summary_response, 'content'):
-                    response = summary_response.content.strip()
-                else:
-                    response = str(summary_response).strip()
+    def handle_no_relevant_info(self, question: str) -> str:
+        """
+        Handles cases where no relevant information is found.
 
-            self.is_first_query = False
-        else:
-            conversation_context = "\n".join(
-                f"User: {q}\nAssistant: {a}" for q, a in self.chat_history
-            )
-            new_prompt = f"""
-Continue the conversation based on the following history:
+        Parameters:
+            question (str): The user's question.
 
-{conversation_context}
+        Returns:
+            str: The chatbot's response.
+        """
+        # Prepare conversation context
+        conversation = self.format_chat_history()
+
+        # Provide a general answer or inform the user
+        prompt = f"""
+{conversation}
+
+You are a knowledgeable assistant.
+
+The user asked: "{question}"
+
+Unfortunately, no relevant information was found in the latest articles.
+
+Instructions:
+- Provide a helpful answer based on your general knowledge up to September 2021.
+- Avoid mentioning any information beyond your knowledge cutoff.
+- If the question is about recent events, politely inform the user that you don't have updated information.
+- Offer assistance with other topics if appropriate.
+
+Answer:
+"""
+        response = self.llm.invoke(prompt).content.strip()
+        return response
+
+    def handle_general_question(self, question: str) -> str:
+        """
+        Handles general questions that do not require IR.
+
+        Parameters:
+            question (str): The user's question.
+
+        Returns:
+            str: The chatbot's response.
+        """
+        # Prepare conversation context
+        conversation = self.format_chat_history()
+
+        # Continue the conversation using general knowledge
+        prompt = f"""
+{conversation}
+
+You are a helpful assistant.
+
+Instructions:
+- Provide a clear and concise answer based on verified information up to your knowledge cutoff in September 2021.
+- Avoid including any information that you're not sure about.
+- Do not mention future events or speculate about the future.
+- Be informative and helpful.
+- Maintain a friendly and professional tone.
 
 User: {question}
 Assistant:
 """
-
-            continuation_response = self.llm(new_prompt)
-            if hasattr(continuation_response, 'content'):
-                response = continuation_response.content.strip()
-            else:
-                response = str(continuation_response).strip()
-
-        self.chat_history.append((question, response))
-
+        response = self.llm.invoke(prompt).content.strip()
         return response
+
+    def format_chat_history(self) -> str:
+        """
+        Formats the chat history into a conversation string.
+
+        Returns:
+            str: Formatted conversation history.
+        """
+        conversation = ""
+        for message in self.chat_history:
+            role = "User" if message["role"] == "user" else "Assistant"
+            content = message["content"]
+            conversation += f"{role}: {content}\n"
+        return conversation.strip()
