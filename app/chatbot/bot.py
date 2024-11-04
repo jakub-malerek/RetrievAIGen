@@ -1,7 +1,7 @@
 import os
 import datetime
 from typing import List, Dict
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.schema import Document
 from app.chatbot.intent_classifier import RunInformationRetrievalClassifier
 from app.chatbot.personas import PersonaManager
