@@ -13,11 +13,10 @@ class RunInformationRetrievalClassifier:
         """
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.model.to(self.device)
 
-    def classify(self, user_input):
+    def classify(self, user_input: str) -> str:
         """
         Classifies whether the user input requires information retrieval for tech-related content.
 
@@ -55,6 +54,6 @@ class RunInformationRetrievalClassifier:
 
         inputs = self.tokenizer(instruction, return_tensors="pt").to(self.device)
         outputs = self.model.generate(**inputs, max_length=10, num_beams=5, early_stopping=True)
-
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
         return response.strip().lower()
