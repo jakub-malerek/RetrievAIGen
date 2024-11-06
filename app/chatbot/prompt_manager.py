@@ -53,22 +53,25 @@ class PromptManager:
             PromptTemplate: The template for IR determination.
         """
         template = (
-            "You are an advanced technology news assistant powered by a Retrieval-Augmented Generation (RAG) system. "
-            "Your goal is to determine if the user's question requires recent, time-sensitive information that can "
-            "only be answered accurately with access to the latest technology news, updates, or other relevant sources.\n\n"
-            "The RAG system is designed to answer questions about recent developments by retrieving up-to-date, contextually relevant "
-            "information from a knowledge base, similar to how a human would search for news, read reports, or consult recent articles "
-            "before providing a response.\n\n"
+            "You are an advanced technology news assistant, specifically focused on technology-related questions. "
+            "Your role is to decide if the user's question requires recent, time-sensitive information in the field of technology. "
+            "This includes fields like artificial intelligence, cybersecurity, programming, gadgets, and other tech-related updates.\n\n"
+            "The RAG system is designed to provide responses to recent developments by retrieving up-to-date, contextually relevant "
+            "information from a technology-focused knowledge base, similar to how a human would search for tech news, read reports, or consult recent articles.\n\n"
             "Instructions:\n"
             "- If the user's question is about recent events, new releases, or updates in technology (e.g., 'What are the latest trends in AI?'), "
             "respond with `IR: yes` to indicate that information retrieval is necessary.\n"
             "- If the question can be answered based on general technical knowledge without needing recent updates (e.g., 'What is Python?'), "
-            "respond with `IR: no` to indicate that information retrieval is not required.\n\n"
-            "Please focus solely on determining whether recent news or updates are necessary and provide only `IR: yes` or `IR: no` "
-            "as your response, without any additional commentary.\n\n"
+            "respond with `IR: no` to indicate that information retrieval is not required.\n"
+            "- If the question is unrelated to technology (e.g., about politics, entertainment, personal advice, or other non-tech topics), "
+            "respond with `IR: no` as these topics are outside the assistant's scope.\n\n"
+            "Important:\n"
+            "Please focus only on determining whether recent technology news or updates are required and provide only `IR: yes` or `IR: no` "
+            "as your response, without any additional commentary or explanation.\n\n"
             "User question: {question}\n"
             "IR Decision:"
         )
+
         return PromptTemplate(input_variables=["question"], template=template)
 
     def get_ir_prompt_template(self) -> PromptTemplate:

@@ -12,6 +12,7 @@ class TechNewsChatbot:
             retriever: The information retriever instance (optional).
             persona (str): The user persona, either "technical" or "non-technical".
         """
+        # Separate LLM instances for IR check and response generation
         self.llm_ir_check = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
         self.llm_response = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
 
@@ -29,14 +30,17 @@ class TechNewsChatbot:
         Returns:
             str: The chatbot's response.
         """
+        # Step 1: Perform IR Check (independent of response generation)
         ir_needed = self.check_ir_needed(question)
         print("IR needed:", ir_needed)
 
+        # Step 2: Generate response based on IR decision (response generation unaware of IR check)
         if ir_needed and self.retriever is not None:
             response = self.handle_ir_question(question)
         else:
             response = self.handle_general_question(question)
 
+        # Save the interaction in chat history
         self.chat_history.append({"role": "user", "content": question})
         self.chat_history.append({"role": "assistant", "content": response})
 
@@ -68,15 +72,19 @@ class TechNewsChatbot:
         Returns:
             str: The chatbot's response.
         """
-        retrieved_docs = self.retriever.get_relevant_documents(question)
+        conversation = self.format_chat_history(window_size=2)
+        contextualized_query = f"{conversation}\nUser: {question}"
+
+        retrieved_docs = self.retriever.get_relevant_documents(contextualized_query)
+
         context = "\n\n".join(
             f"{idx + 1}. {doc.page_content}\nSource URL: {doc.metadata.get('url', 'URL not available')}"
             for idx, doc in enumerate(retrieved_docs)
         )
 
         ir_prompt_template = self.persona_manager.get_ir_prompt_template()
-        conversation = self.format_chat_history()
         prompt = ir_prompt_template.format(conversation=conversation, context=context, question=question)
+
         response = self.llm_response.invoke(prompt).content.strip()
         return response
 
@@ -91,19 +99,28 @@ class TechNewsChatbot:
             str: The chatbot's response.
         """
         general_prompt_template = self.persona_manager.get_general_prompt_template()
-        conversation = self.format_chat_history()
+        conversation = self.format_chat_history(window_size=2)  # Include recent context
         prompt = general_prompt_template.format(conversation=conversation, question=question)
         response = self.llm_response.invoke(prompt).content.strip()
         return response
 
-    def format_chat_history(self) -> str:
+    def format_chat_history(self, window_size: int = 2) -> str:
         """
-        Formats the chat history into a conversation string.
+        Formats the chat history into a conversation string, using a sliding window to include
+        only the last `window_size` interactions for context. Handles cases where history length
+        is shorter than the window size.
+
+        Parameters:
+            window_size (int): The number of previous interactions to include for context.
 
         Returns:
             str: Formatted conversation history.
         """
+        num_messages = min(window_size * 2, len(self.chat_history))
+        relevant_history = self.chat_history[-num_messages:]
+
+        # Format the conversation for the prompt
         return "\n".join(
             f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
-            for msg in self.chat_history
+            for msg in relevant_history
         )
