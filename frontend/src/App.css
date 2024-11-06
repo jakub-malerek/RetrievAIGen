@@ -1,53 +1,16 @@
-.App {
-  text-align: center;
-  font-family: Arial, sans-serif;
-  padding: 20px;
-}
-
-input {
-  width: 300px;
-  padding: 10px;
-  margin-right: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-button {
-  padding: 10px 15px;
-  background-color: #007BFF;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-
 .formatted-list {
   text-align: left;
   margin-top: 20px;
-  padding-left: 0; /* Remove left padding */
-  list-style-type: none; /* Remove default bullet points */
+  padding-left: 20px; /* Indent list items */
+  list-style-type: none;
 }
 
 .formatted-list li {
-  margin-bottom: 15px; /* Add spacing between items */
-  line-height: 1.6; /* Improve readability */
+  margin-bottom: 15px;
+  line-height: 1.6;
 }
-
 
 .formatted-text {
   margin-top: 20px;
-  line-height: 1.6; /* Improve readability */
-}
-
-a {
-  color: #007BFF;
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
+  line-height: 1.6;
 }

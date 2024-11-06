@@ -32,35 +32,19 @@ function App() {
     }
   };
 
-  // Function to determine if the response is likely a bullet-point list
-  const isBulletPointResponse = (text) => {
-    // Check for common bullet point patterns (e.g., "1. ", "2. ", "- ", "* ")
-    const bulletPointPattern = /(^|\n)(\d+\.\s|-|\*\s)/;
-    return bulletPointPattern.test(text);
+  // Check if response is structured with bullet points or headings
+  const hasBulletPointsOrHeadings = (text) => {
+    const pattern = /(^|\n)(\d+\.\s|-|\*\s|##\s)/;
+    return pattern.test(text);
   };
 
-  // Function to format the answer using react-markdown
+  // Format the response based on structure
   const formatAnswer = () => {
     if (!answer) return null;
 
-    // Check dynamically if the answer contains bullet points
-    if (isBulletPointResponse(answer)) {
-      // Split by newlines before bullet points
-      const items = answer
-        .split(/\n(?=\d+\.\s|-|\*\s)/) // Adjust the regex to capture more bullet patterns
-        .filter(item => item.trim() !== ""); // Remove empty items
-
-      return (
-        <ul className="formatted-list">
-          {items.map((item, index) => (
-            <li key={index}>
-              <ReactMarkdown>{item.trim()}</ReactMarkdown>
-            </li>
-          ))}
-        </ul>
-      );
+    if (hasBulletPointsOrHeadings(answer)) {
+      return <ReactMarkdown className="formatted-list">{answer}</ReactMarkdown>;
     } else {
-      // Fallback to rendering as plain text
       return <ReactMarkdown className="formatted-text">{answer}</ReactMarkdown>;
     }
   };

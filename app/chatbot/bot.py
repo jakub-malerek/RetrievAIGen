@@ -96,7 +96,7 @@ class TechNewsChatbot:
             str: The chatbot's response.
         """
         general_prompt_template = self.persona_manager.get_general_prompt_template()
-        conversation = self.format_chat_history(window_size=2)  # Include recent context
+        conversation = self.format_chat_history(window_size=2)
         prompt = general_prompt_template.format(conversation=conversation, question=question)
         response = self.llm.invoke(prompt).content.strip()
         return response
@@ -114,7 +114,7 @@ class TechNewsChatbot:
             str: Formatted conversation history.
         """
         num_messages = min(window_size * 2, len(self.chat_history))
-        relevant_history = self.chat_history[-num_messages:]  # Get the relevant slice
+        relevant_history = self.chat_history[-num_messages:]
 
         return "\n".join(
             f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"

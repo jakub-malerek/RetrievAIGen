@@ -71,12 +71,11 @@ class PromptManager:
             "User question: {question}\n"
             "IR Decision:"
         )
-
         return PromptTemplate(input_variables=["question"], template=template)
 
     def get_ir_prompt_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling information retrieval questions.
+        Returns the PromptTemplate for handling information retrieval questions, with enforced formatting for React rendering.
 
         Returns:
             PromptTemplate: The template for IR questions.
@@ -86,10 +85,19 @@ class PromptManager:
             "{conversation}\n\n"
             f"{instructions}\n\n"
             "You have been provided with several articles to assist in answering the user's question. "
-            "Summarize each relevant article briefly, presenting the summaries as a numbered list:\n"
-            "- [1] Provide a brief explanation of the key points.\n"
-            "- [2] Invite the user to read more, followed by the source URL.\n"
-            "- Mention if some articles are loosely related or irrelevant.\n\n"
+            "Please structure your answer with markdown formatting for easy display:\n\n"
+            "- Start with a heading in markdown style (`## Topic Heading`) to introduce the topic.\n"
+            "- For each article or key insight:\n"
+            "  - Use bullet points (`- `) or numbered lists (`1. `) for clarity.\n"
+            "  - Include a brief explanation for each point.\n"
+            "  - Conclude each item with the source name and a markdown link to the source.\n\n"
+            "Example:\n"
+            "## Latest Developments in Wearable Technologies\n\n"
+            "- **Electric Plastic Innovations**: A new material known as \"electric plastic\" is being developed, which could enable "
+            "self-powered wearables and real-time neural interfaces. This technology aims to create a closer integration between technology "
+            "and the human body, potentially revolutionizing medical implants and wearable devices. [Source: Tech Innovations](https://example.com)\n"
+            "- **Wearable AI Market Growth**: The global wearable AI market is projected to grow significantly, driven by advancements in "
+            "technology and increasing consumer demand for health monitoring devices. [Source: Market Insights](https://example.com)\n\n"
             "Guidelines:\n"
             "- Answer tech-related questions only.\n"
             "- If unrelated, gently redirect to tech topics.\n\n"
@@ -104,8 +112,7 @@ class PromptManager:
 
     def get_general_prompt_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling general questions without IR determination,
-        focusing solely on answering the user's question based on existing knowledge.
+        Returns the PromptTemplate for handling general questions without IR determination, focusing solely on answering the user's question based on existing knowledge.
 
         Returns:
             PromptTemplate: The template for general questions.
@@ -115,8 +122,14 @@ class PromptManager:
             "{conversation}\n\n"
             f"{instructions}\n\n"
             "Answer the user's question clearly and accurately based on your knowledge of technology and programming.\n\n"
-            "If the question is related to casual conversation (e.g., greetings, past questions, or suggestions), "
-            "respond appropriately while maintaining your technology expertise.\n\n"
+            "Use structured formatting:\n"
+            "- Start with a topic heading in markdown (`## Heading`).\n"
+            "- Use bullet points (`- `) or numbered lists (`1. `) for key points.\n"
+            "- Include links in markdown format `[Link Text](URL)` for external references.\n\n"
+            "Example:\n"
+            "## Overview of Cloud Computing\n\n"
+            "- **Definition**: Brief definition of cloud computing.\n"
+            "- **Key Benefit 1**: Description of benefit. [Learn more](URL)\n\n"
             "User: {question}\n"
             "Assistant:"
         )
@@ -126,7 +139,7 @@ class PromptManager:
 
     def get_no_relevant_info_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling cases where no relevant information is found.
+        Returns the PromptTemplate for handling cases where no relevant information is found, with structured formatting.
 
         Returns:
             PromptTemplate: The template for no relevant info responses.
@@ -141,6 +154,13 @@ class PromptManager:
             "If the question is unrelated to technology or programming, respond with: "
             "\"I'm sorry, but I specialize in technology and programming topics. "
             "Please ask something related to these areas.\"\n\n"
+            "Use structured formatting:\n"
+            "- Start with a heading in markdown (`## Topic Heading`).\n"
+            "- For any key points, use bullet points (`- `) or numbered lists (`1. `).\n"
+            "- If mentioning resources, include markdown links (`[Link Text](URL)`).\n\n"
+            "Example:\n"
+            "## General Information on Quantum Computing\n\n"
+            "- **Definition**: Explanation of quantum computing basics.\n\n"
             "Answer:"
         )
         return PromptTemplate(
