@@ -1,67 +1,63 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './App.css';
+import { FaRobot } from 'react-icons/fa'; 
 
 function App() {
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!question.trim()) {
-      setAnswer('Please enter a question.');
-      return;
-    }
+    if (!question.trim()) return;
 
+    const userMessage = { role: 'user', content: question };
+    setChatHistory((prev) => [...prev, userMessage]);
+    setQuestion('');
     setLoading(true);
 
     try {
       const response = await axios.post('http://127.0.0.1:8000/ask', { question });
-      if (response.data && response.data.response) {
-        setAnswer(response.data.response);
-      } else {
-        setAnswer('Unexpected response from the server.');
-      }
+      const botMessage = {
+        role: 'bot',
+        content: response.data?.response || 'Unexpected response from the server.',
+      };
+      setChatHistory((prev) => [...prev, botMessage]);
     } catch (error) {
       console.error('Error fetching answer:', error);
-      setAnswer('An error occurred. Please try again.');
+      const errorMessage = { role: 'bot', content: 'An error occurred. Please try again.' };
+      setChatHistory((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Check if response is structured with bullet points or headings
-  const hasBulletPointsOrHeadings = (text) => {
-    const pattern = /(^|\n)(\d+\.\s|-|\*\s|##\s)/;
-    return pattern.test(text);
-  };
-
-  // Format the response based on structure
-  const formatAnswer = () => {
-    if (!answer) return null;
-
-    if (hasBulletPointsOrHeadings(answer)) {
-      return <ReactMarkdown className="formatted-list">{answer}</ReactMarkdown>;
-    } else {
-      return <ReactMarkdown className="formatted-text">{answer}</ReactMarkdown>;
-    }
-  };
-
   return (
     <div className="App">
-      <h1>Chat with AI</h1>
-      <form onSubmit={handleSubmit}>
+      <nav className="navbar">
+        <FaRobot className="logo" />
+        <h1 className="navbar-title">TechNews Bot</h1>
+      </nav>
+      <div className="chat-window">
+        {chatHistory.map((msg, index) => (
+          <div key={index} className={`message ${msg.role}`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+          </div>
+        ))}
+        {loading && <p className="loading">Loading...</p>}
+      </div>
+      <form onSubmit={handleSubmit} className="input-area">
         <input
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask me anything..."
+          placeholder="Ask me anything about tech news..."
         />
         <button type="submit">Send</button>
       </form>
-      {loading ? <p>Loading...</p> : formatAnswer()}
     </div>
   );
 }
