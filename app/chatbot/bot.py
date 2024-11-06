@@ -5,16 +5,14 @@ from app.chatbot.prompt_manager import PromptManager
 class TechNewsChatbot:
     def __init__(self, api_key: str, retriever=None, persona="technical"):
         """
-        Initializes the Tech News chatbot with a persona and uses separate LLM instances for IR checks and responses.
+        Initializes the Tech News chatbot with a persona and a single OpenAI instance.
 
         Parameters:
             api_key (str): The API key for OpenAI.
             retriever: The information retriever instance (optional).
             persona (str): The user persona, either "technical" or "non-technical".
         """
-        # Separate LLM instances for IR check and response generation
-        self.llm_ir_check = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
-        self.llm_response = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
+        self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
 
         self.retriever = retriever
         self.chat_history = []
@@ -30,17 +28,14 @@ class TechNewsChatbot:
         Returns:
             str: The chatbot's response.
         """
-        # Step 1: Perform IR Check (independent of response generation)
         ir_needed = self.check_ir_needed(question)
         print("IR needed:", ir_needed)
 
-        # Step 2: Generate response based on IR decision (response generation unaware of IR check)
         if ir_needed and self.retriever is not None:
             response = self.handle_ir_question(question)
         else:
             response = self.handle_general_question(question)
 
-        # Save the interaction in chat history
         self.chat_history.append({"role": "user", "content": question})
         self.chat_history.append({"role": "assistant", "content": response})
 
@@ -58,7 +53,7 @@ class TechNewsChatbot:
         """
         ir_check_template = self.persona_manager.get_ir_check_template()
         ir_prompt = ir_check_template.format(question=f"Does this question require recent information: {question}")
-        ir_response = self.llm_ir_check.invoke(ir_prompt).content.strip()
+        ir_response = self.llm.invoke(ir_prompt).content.strip()
 
         return "IR: yes" in ir_response
 
@@ -78,14 +73,16 @@ class TechNewsChatbot:
         retrieved_docs = self.retriever.get_relevant_documents(contextualized_query)
 
         context = "\n\n".join(
-            f"{idx + 1}. {doc.page_content}\nSource URL: {doc.metadata.get('url', 'URL not available')}"
+            f"{idx + 1}. {doc.page_content}\nSource: {doc.metadata.get('source_name', 'Unknown')} | "
+            f"Published: {doc.metadata.get('publishedAt', 'Unknown')}\nURL: {
+                doc.metadata.get('url', 'URL not available')}"
             for idx, doc in enumerate(retrieved_docs)
         )
 
         ir_prompt_template = self.persona_manager.get_ir_prompt_template()
         prompt = ir_prompt_template.format(conversation=conversation, context=context, question=question)
 
-        response = self.llm_response.invoke(prompt).content.strip()
+        response = self.llm.invoke(prompt).content.strip()
         return response
 
     def handle_general_question(self, question: str) -> str:
@@ -101,7 +98,7 @@ class TechNewsChatbot:
         general_prompt_template = self.persona_manager.get_general_prompt_template()
         conversation = self.format_chat_history(window_size=2)  # Include recent context
         prompt = general_prompt_template.format(conversation=conversation, question=question)
-        response = self.llm_response.invoke(prompt).content.strip()
+        response = self.llm.invoke(prompt).content.strip()
         return response
 
     def format_chat_history(self, window_size: int = 2) -> str:
@@ -117,9 +114,8 @@ class TechNewsChatbot:
             str: Formatted conversation history.
         """
         num_messages = min(window_size * 2, len(self.chat_history))
-        relevant_history = self.chat_history[-num_messages:]
+        relevant_history = self.chat_history[-num_messages:]  # Get the relevant slice
 
-        # Format the conversation for the prompt
         return "\n".join(
             f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
             for msg in relevant_history
