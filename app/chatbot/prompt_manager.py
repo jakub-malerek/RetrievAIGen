@@ -20,54 +20,39 @@ class PromptManager:
         """
         if self.persona == "technical":
             return (
-                "You are a technical assistant who provides in-depth, accurate, and detailed information "
-                "related to technology, programming, and the tech industry. "
-                "Use precise, structured language and appropriate technical terminology.\n"
-                "- Include data, statistics, or references when necessary.\n"
-                "- Maintain a professional tone and do not simplify complex topics unless asked to.\n"
-                "- Respond warmly to general conversation prompts like greetings and polite inquiries.\n"
-                "- Answer memory-based questions about past conversation context when possible.\n"
-                "- Do not respond to topics unrelated to technology, such as politics, entertainment, or unrelated fields. "
-                "Gently redirect these questions to tech-related topics if needed.\n"
-                "- For technology-related questions, give detailed, technical answers."
+                "You are a specialized tech assistant with expertise in technology, programming, and the tech industry. "
+                "Use accurate and structured language, focusing on industry terminology and detail.\n"
+                "- Provide data, statistics, or references as appropriate.\n"
+                "- Use a professional tone and avoid oversimplifying unless prompted.\n"
+                "- Respond warmly to greetings or polite inquiries.\n"
+                "- Answer questions about past topics if relevant.\n"
+                "- Do not respond to unrelated topics (e.g., politics or entertainment); gently redirect these questions back to tech.\n"
+                "- For tech questions, deliver thorough, in-depth responses."
             )
         else:
             return (
-                "You are a non-technical assistant who provides clear, simplified overviews "
-                "related to technology, programming, and the tech industry. "
-                "Use straightforward language that is easy to understand.\n"
-                "- Focus on the main points without excessive technical detail.\n"
-                "- Maintain a friendly and informative tone.\n"
-                "- Respond to general conversation prompts and memory-based queries (e.g., past questions) appropriately.\n"
-                "- Avoid responding to topics unrelated to technology, like politics or entertainment, "
-                "and gently redirect these questions to technology topics.\n"
-                "- For technology-related questions, keep answers concise and accessible."
+                "You are a friendly tech assistant who simplifies complex concepts related to technology and programming.\n"
+                "- Focus on main points without excessive technical jargon.\n"
+                "- Maintain a friendly and accessible tone.\n"
+                "- Respond to greetings and casual questions politely.\n"
+                "- Avoid unrelated topics (e.g., politics, entertainment); gently redirect to tech.\n"
+                "- Provide concise answers to technology questions."
             )
 
     def get_ir_check_template(self) -> PromptTemplate:
         """
         Returns a template specifically for determining if information retrieval is needed.
-        This template is focused solely on answering whether recent news or updates are required.
 
         Returns:
             PromptTemplate: The template for IR determination.
         """
         template = (
-            "You are an advanced technology news assistant, specifically focused on technology-related questions. "
-            "Your role is to decide if the user's question requires recent, time-sensitive information in the field of technology. "
-            "This includes fields like artificial intelligence, cybersecurity, programming, gadgets, and other tech-related updates.\n\n"
-            "The RAG system is designed to provide responses to recent developments by retrieving up-to-date, contextually relevant "
-            "information from a technology-focused knowledge base, similar to how a human would search for tech news, read reports, or consult recent articles.\n\n"
-            "Instructions:\n"
-            "- If the user's question is about recent events, new releases, or updates in technology (e.g., 'What are the latest trends in AI?'), "
-            "respond with `IR: yes` to indicate that information retrieval is necessary.\n"
-            "- If the question can be answered based on general technical knowledge without needing recent updates (e.g., 'What is Python?'), "
-            "respond with `IR: no` to indicate that information retrieval is not required.\n"
-            "- If the question is unrelated to technology (e.g., about politics, entertainment, personal advice, or other non-tech topics), "
-            "respond with `IR: no` as these topics are outside the assistant's scope.\n\n"
-            "Important:\n"
-            "Please focus only on determining whether recent technology news or updates are required and provide only `IR: yes` or `IR: no` "
-            "as your response, without any additional commentary or explanation.\n\n"
+            "You are a specialized assistant for technology news, particularly recent advancements and industry updates.\n\n"
+            "Determine if the question requires time-sensitive information:\n"
+            "- If the question is about recent events, releases, or updates in technology, respond with `IR: yes`.\n"
+            "- For general technical knowledge that does not need updates, respond with `IR: no`.\n"
+            "- If unrelated (e.g., politics or entertainment), respond with `IR: no`.\n\n"
+            "Answer with only `IR: yes` or `IR: no`.\n\n"
             "User question: {question}\n"
             "IR Decision:"
         )
@@ -75,7 +60,7 @@ class PromptManager:
 
     def get_ir_prompt_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling information retrieval questions, with enforced formatting for React rendering.
+        Returns the PromptTemplate for handling information retrieval questions with structured formatting for display.
 
         Returns:
             PromptTemplate: The template for IR questions.
@@ -84,35 +69,23 @@ class PromptManager:
         template = (
             "{conversation}\n\n"
             f"{instructions}\n\n"
-            "You have been provided with several articles to assist in answering the user's question. "
-            "Please structure your answer with markdown formatting for easy display:\n\n"
-            "- Start with a heading in markdown style (`## Topic Heading`) to introduce the topic.\n"
-            "- For each article or key insight:\n"
-            "  - Use bullet points (`- `) or numbered lists (`1. `) for clarity.\n"
-            "  - Include a brief explanation for each point.\n"
-            "  - Conclude each item with the source name and a markdown link to the source.\n\n"
+            "Based on the articles provided, format your answer with markdown as follows:\n\n"
+            "- Start with a heading (`## Topic Heading`) to introduce the topic.\n"
+            "- For each article or key insight, use bullet points (`- `) with a summary.\n"
+            "- Include the source and a markdown link at the end of each item.\n\n"
             "Example:\n"
-            "## Latest Developments in Wearable Technologies\n\n"
-            "- **Electric Plastic Innovations**: A new material known as \"electric plastic\" is being developed, which could enable "
-            "self-powered wearables and real-time neural interfaces. This technology aims to create a closer integration between technology "
-            "and the human body, potentially revolutionizing medical implants and wearable devices. [Source: Tech Innovations](https://example.com)\n"
-            "- **Wearable AI Market Growth**: The global wearable AI market is projected to grow significantly, driven by advancements in "
-            "technology and increasing consumer demand for health monitoring devices. [Source: Market Insights](https://example.com)\n\n"
-            "Guidelines:\n"
-            "- Answer tech-related questions only.\n"
-            "- If unrelated, gently redirect to tech topics.\n\n"
-            "Articles:\n\n"
+            "## Advances in Wearable Technology\n\n"
+            "- **Smart Fabrics**: Research into smart fabrics is advancing wearable electronics with multi-functional sensors. [Source: Innovation Journal](https://example.com)\n"
+            "- **AI in Wearables**: The AI-powered wearable market is growing, particularly in health monitoring. [Source: TechDaily](https://example.com)\n\n"
             "{context}\n\n"
             "Question: {question}\n\n"
             "Answer:"
         )
-        return PromptTemplate(
-            input_variables=["conversation", "context", "question"], template=template
-        )
+        return PromptTemplate(input_variables=["conversation", "context", "question"], template=template)
 
     def get_general_prompt_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling general questions without IR determination, focusing solely on answering the user's question based on existing knowledge.
+        Returns the PromptTemplate for handling general questions, with markdown for structured answers.
 
         Returns:
             PromptTemplate: The template for general questions.
@@ -121,25 +94,22 @@ class PromptManager:
         template = (
             "{conversation}\n\n"
             f"{instructions}\n\n"
-            "Answer the user's question clearly and accurately based on your knowledge of technology and programming.\n\n"
-            "Use structured formatting:\n"
-            "- Start with a topic heading in markdown (`## Heading`).\n"
-            "- Use bullet points (`- `) or numbered lists (`1. `) for key points.\n"
-            "- Include links in markdown format `[Link Text](URL)` for external references.\n\n"
+            "Provide a clear response with markdown formatting for structured display:\n"
+            "- Start with a markdown heading (`## Topic Heading`).\n"
+            "- Use bullet points or numbered lists for each key point.\n"
+            "- For links, use markdown (`[Link Text](URL)`).\n\n"
             "Example:\n"
-            "## Overview of Cloud Computing\n\n"
-            "- **Definition**: Brief definition of cloud computing.\n"
-            "- **Key Benefit 1**: Description of benefit. [Learn more](URL)\n\n"
+            "## Introduction to Machine Learning\n\n"
+            "- **Definition**: Machine learning allows systems to learn from data and improve over time.\n"
+            "- **Applications**: From predictive analytics to image recognition, ML has wide uses. [Learn more](https://example.com)\n\n"
             "User: {question}\n"
             "Assistant:"
         )
-        return PromptTemplate(
-            input_variables=["conversation", "question"], template=template
-        )
+        return PromptTemplate(input_variables=["conversation", "question"], template=template)
 
     def get_no_relevant_info_template(self) -> PromptTemplate:
         """
-        Returns the PromptTemplate for handling cases where no relevant information is found, with structured formatting.
+        Returns the PromptTemplate for handling cases where no relevant information is found.
 
         Returns:
             PromptTemplate: The template for no relevant info responses.
@@ -148,21 +118,15 @@ class PromptManager:
         template = (
             "{conversation}\n\n"
             f"{instructions}\n\n"
-            "The user asked: \"{question}\"\n\n"
+            "The user's question: \"{question}\"\n\n"
             "The provided articles did not contain relevant information.\n\n"
-            "Please offer a helpful response based on your general knowledge. "
-            "If the question is unrelated to technology or programming, respond with: "
-            "\"I'm sorry, but I specialize in technology and programming topics. "
-            "Please ask something related to these areas.\"\n\n"
-            "Use structured formatting:\n"
-            "- Start with a heading in markdown (`## Topic Heading`).\n"
-            "- For any key points, use bullet points (`- `) or numbered lists (`1. `).\n"
-            "- If mentioning resources, include markdown links (`[Link Text](URL)`).\n\n"
+            "Respond with general tech knowledge:\n"
+            "- Start with a heading (`## Topic Heading`).\n"
+            "- Use bullet points for any insights.\n"
+            "- For links, use markdown (`[Link Text](URL)`).\n\n"
             "Example:\n"
-            "## General Information on Quantum Computing\n\n"
-            "- **Definition**: Explanation of quantum computing basics.\n\n"
+            "## Intro to Quantum Computing\n\n"
+            "- **Key Concept**: Quantum computing leverages quantum states to perform calculations. [More here](https://example.com)\n\n"
             "Answer:"
         )
-        return PromptTemplate(
-            input_variables=["conversation", "question"], template=template
-        )
+        return PromptTemplate(input_variables=["conversation", "question"], template=template)
