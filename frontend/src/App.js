@@ -3,7 +3,7 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './App.css';
-import { FaRobot } from 'react-icons/fa'; 
+import { FaRobot } from 'react-icons/fa';
 
 function App() {
   const [question, setQuestion] = useState('');
@@ -41,23 +41,34 @@ function App() {
         <FaRobot className="logo" />
         <h1 className="navbar-title">TechNews Bot</h1>
       </nav>
-      <div className="chat-window">
-        {chatHistory.map((msg, index) => (
-          <div key={index} className={`message ${msg.role}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+      <div className="main-container">
+        <div className="sidebar">
+          <button className="new-chat-btn">+ New Chat</button>
+          <div className="chat-sessions">
+            <div className="chat-session">Chat 1</div>
+            <div className="chat-session">Chat 2</div>
           </div>
-        ))}
-        {loading && <p className="loading">Loading...</p>}
+        </div>
+        <div className="chat-section">
+          <div className="chat-window">
+            {chatHistory.map((msg, index) => (
+              <div key={index} className={`message ${msg.role}`}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
+            ))}
+            {loading && <p className="loading">Loading...</p>}
+          </div>
+          <form onSubmit={handleSubmit} className="input-area">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask me anything about tech news..."
+            />
+            <button type="submit">Send</button>
+          </form>
+        </div>
       </div>
-      <form onSubmit={handleSubmit} className="input-area">
-        <input
-          type="text"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask me anything about tech news..."
-        />
-        <button type="submit">Send</button>
-      </form>
     </div>
   );
 }
