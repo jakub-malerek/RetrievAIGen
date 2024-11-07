@@ -49,14 +49,30 @@ class PromptManager:
         template = (
             "You are a specialized assistant for technology news, particularly recent advancements and industry updates.\n\n"
             "Determine if the question requires time-sensitive information:\n"
-            "- If the question is about recent events, releases, or updates in technology, respond with `IR: yes`.\n"
-            "- For general technical knowledge that does not need updates, respond with `IR: no`.\n"
-            "- If unrelated (e.g., politics or entertainment), respond with `IR: no`.\n\n"
-            "Answer with only `IR: yes` or `IR: no`.\n\n"
+            "- If the question is about recent events, releases, or updates in technology, respond with 'IR: yes'.\n"
+            "- For general technical knowledge that does not need updates, respond with 'IR: no'.\n"
+            "- If unrelated (e.g., politics or entertainment), respond with 'IR: no'.\n\n"
+            "Answer with only 'IR: yes' or 'IR: no'.\n\n"
             "User question: {question}\n"
             "IR Decision:"
         )
         return PromptTemplate(input_variables=["question"], template=template)
+
+    def get_ir_query_template(self) -> PromptTemplate:
+        """
+        Returns a template for generating the IR query dynamically.
+
+        Returns:
+            PromptTemplate: The template for IR query generation.
+        """
+        template = (
+            "You are an assistant that formulates precise search queries for retrieving technology news articles.\n"
+            "Based on the conversation and the user's question, generate a concise and clear search query that captures the user's intent.\n\n"
+            "Conversation:\n{conversation}\n\n"
+            "User's question:\n{question}\n\n"
+            "Search Query:"
+        )
+        return PromptTemplate(input_variables=["conversation", "question"], template=template)
 
     def get_ir_prompt_template(self) -> PromptTemplate:
         """
@@ -77,7 +93,7 @@ class PromptManager:
             "## Advances in Wearable Technology\n\n"
             "- **Smart Fabrics**: Research into smart fabrics is advancing wearable electronics with multi-functional sensors. [Source: Innovation Journal](https://example.com)\n"
             "- **AI in Wearables**: The AI-powered wearable market is growing, particularly in health monitoring. [Source: TechDaily](https://example.com)\n\n"
-            "{context}\n\n"
+            "Articles:\n{context}\n\n"
             "Question: {question}\n\n"
             "Answer:"
         )
@@ -107,6 +123,24 @@ class PromptManager:
         )
         return PromptTemplate(input_variables=["conversation", "question"], template=template)
 
+    def get_short_input_template(self) -> PromptTemplate:
+        """
+        Returns the PromptTemplate for handling short or unclear inputs.
+
+        Returns:
+            PromptTemplate: The template for short inputs.
+        """
+        instructions = self.get_instructions()
+        template = (
+            "{conversation}\n\n"
+            f"{instructions}\n\n"
+            "The user's message is brief or unclear.\n"
+            "Provide a polite and professional response that encourages the user to elaborate if needed.\n\n"
+            "User: {question}\n"
+            "Assistant:"
+        )
+        return PromptTemplate(input_variables=["conversation", "question"], template=template)
+
     def get_no_relevant_info_template(self) -> PromptTemplate:
         """
         Returns the PromptTemplate for handling cases where no relevant information is found.
@@ -125,7 +159,7 @@ class PromptManager:
             "- Use bullet points for any insights.\n"
             "- For links, use markdown (`[Link Text](URL)`).\n\n"
             "Example:\n"
-            "## Intro to Quantum Computing\n\n"
+            "## Introduction to Quantum Computing\n\n"
             "- **Key Concept**: Quantum computing leverages quantum states to perform calculations. [More here](https://example.com)\n\n"
             "Answer:"
         )
