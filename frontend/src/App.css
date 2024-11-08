@@ -84,6 +84,60 @@ html, body, #root {
   background-color: #3b5998;
 }
 
+/* Persona Toggle Switch */
+.persona-toggle {
+  display: flex;
+  position: relative;
+  width: 220px;
+  height: 40px;
+  background-color: #f1f1f1;
+  border-radius: 20px;
+  margin: 20px auto;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.persona-toggle.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.persona-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  font-weight: bold;
+  z-index: 1;
+  transition: color 0.3s;
+}
+
+.persona-option.active {
+  color: #ffffff;
+}
+
+.slider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background-color: #3498db;
+  border-radius: 20px;
+  transition: transform 0.3s ease;
+}
+
+.slider.left {
+  transform: translateX(0);
+}
+
+.slider.right {
+  transform: translateX(100%);
+  background-color: #e67e22;
+}
+
 /* Chat Section */
 .chat-section {
   flex: 1;
@@ -115,7 +169,6 @@ html, body, #root {
   clear: both;
 }
 
-/* Force each message onto a new line */
 .message:not(:first-child) {
   margin-top: 15px;
 }
