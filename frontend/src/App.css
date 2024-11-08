@@ -1,3 +1,5 @@
+/* src/App.css */
+
 /* Global styling */
 * {
   box-sizing: border-box;
@@ -244,6 +246,10 @@ input {
   font-size: 1rem;
 }
 
+input:disabled {
+  background-color: #f9f9f9;
+}
+
 button {
   padding: 12px 20px;
   margin-left: 10px;
@@ -256,6 +262,11 @@ button {
   transition: background-color 0.3s ease;
 }
 
-button:hover {
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
   background-color: #50a4d3;
 }
