@@ -19,3 +19,7 @@ HF_EMBEDDING_MODEL = os.getenv("HF_EMBEDDING_MODEL")
 
 # OpenAI setup
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# SQLite database setup
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'database', 'chat_history.db')}"
