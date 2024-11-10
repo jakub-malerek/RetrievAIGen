@@ -14,116 +14,111 @@ function App() {
     const [sessionId, setSessionId] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [isSessionClosed, setIsSessionClosed] = useState(false);
+    const [feedbackPromptCount, setFeedbackPromptCount] = useState(0);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [feedbackThreshold, setFeedbackThreshold] = useState(getRandomThreshold());
+    const [postFeedbackMessageCount, setPostFeedbackMessageCount] = useState(0);
 
-    // Start a new chat session when the component mounts
+    function getRandomThreshold() {
+        return Math.floor(Math.random() * 4) + 4; // Random number between 4 and 7
+    }
+
     useEffect(() => {
         startNewChat();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const startNewChat = async () => {
-        // Save the current session if it has chat history
         if (sessionId && chatHistory.length > 0) {
-            setSessions((prevSessions) => {
-                // Update the current session's data
-                const sessionExists = prevSessions.some((s) => s.sessionId === sessionId);
-                if (sessionExists) {
-                    // Update existing session
-                    return prevSessions.map((s) =>
-                        s.sessionId === sessionId
-                            ? { sessionId, chatHistory, persona }
-                            : s
-                    );
-                } else {
-                    // Add new session
-                    return [...prevSessions, { sessionId, chatHistory, persona }];
-                }
-            });
+            saveCurrentSession();
         }
 
-        setChatHistory([]); // Clear the chat history for the new session
-        setIsSessionClosed(false); // New sessions are open by default
-        setPersonaLocked(false); // Allow persona change for new session
+        setChatHistory([]);
+        setIsSessionClosed(false);
+        setPersonaLocked(false);
+        setFeedbackPromptCount(0);
+        setShowFeedbackModal(false);
+        setFeedbackThreshold(getRandomThreshold());
+        setPostFeedbackMessageCount(0);
 
         try {
-            const payload = {
-                persona: persona,
-                session_id: sessionId, // Send the current session ID to close it
-            };
-
-            // Request backend to create a new session
-            const response = await axios.post('http://127.0.0.1:8000/start_session', payload);
-
-            // Set the new session ID and reset states for the new chat session
+            const response = await axios.post('http://127.0.0.1:8000/start_session', { persona });
             setSessionId(response.data.session_id);
         } catch (error) {
-            console.error('Error creating new chat session:', error);
-            alert('Failed to start a new chat session. Please try again.');
+            alert('Failed to start a new chat session.');
         }
+    };
+
+    const saveCurrentSession = () => {
+        setSessions((prevSessions) => {
+            const sessionExists = prevSessions.some((s) => s.sessionId === sessionId);
+            if (sessionExists) {
+                return prevSessions.map((s) =>
+                    s.sessionId === sessionId ? { sessionId, chatHistory, persona } : s
+                );
+            } else {
+                return [...prevSessions, { sessionId, chatHistory, persona }];
+            }
+        });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!question.trim()) return;
-
-        if (!sessionId) {
-            alert('Please start a new chat session before sending messages.');
-            return;
-        }
+        if (!sessionId) return alert('Please start a new chat session.');
 
         if (!personaLocked) setPersonaLocked(true);
-
         const userMessage = { role: 'user', content: question };
         setChatHistory((prev) => [...prev, userMessage]);
         setQuestion('');
         setLoading(true);
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/ask', {
-                question,
-                persona,
-                session_id: sessionId,
-            });
-
-            const botMessage = {
-                role: 'bot',
-                content: response.data?.response || 'Unexpected response from the server.',
-            };
-            setChatHistory((prev) => [...prev, botMessage]);
-        } catch (error) {
-            console.error('Error fetching answer:', error);
-            const errorMessage = { role: 'bot', content: 'An error occurred. Please try again.' };
-            setChatHistory((prev) => [...prev, errorMessage]);
+            const response = await axios.post('http://127.0.0.1:8000/ask', { question, persona, session_id: sessionId });
+            setChatHistory((prev) => [...prev, { role: 'bot', content: response.data.response }]);
+            handleFeedbackPrompt();
+        } catch {
+            setChatHistory((prev) => [...prev, { role: 'bot', content: 'An error occurred.' }]);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleFeedbackPrompt = () => {
+        setFeedbackPromptCount((count) => count + 1);
+        if (feedbackPromptCount + 1 >= feedbackThreshold) {
+            setShowFeedbackModal(true);
+            setPostFeedbackMessageCount(0); // Reset post-feedback message count
+        } else if (showFeedbackModal) {
+            setPostFeedbackMessageCount((count) => count + 1);
+            if (postFeedbackMessageCount + 1 >= 2) {
+                setShowFeedbackModal(false); // Close feedback modal after two subsequent messages
+            }
+        }
+    };
+
+    const handleFeedbackSubmit = async (rating) => {
+        try {
+            await axios.post('http://127.0.0.1:8000/feedback', { sessionId, rating });
+            setShowFeedbackModal(false);
+            setFeedbackPromptCount(0);
+            setFeedbackThreshold(getRandomThreshold());
+        } catch {
+            alert('Failed to submit feedback.');
+        }
+    };
+
     const loadSession = (session) => {
-        // Save the current session if it's different from the one being loaded
         if (sessionId && sessionId !== session.sessionId && chatHistory.length > 0) {
-            setSessions((prevSessions) => {
-                // Update the current session's data
-                const sessionExists = prevSessions.some((s) => s.sessionId === sessionId);
-                if (sessionExists) {
-                    return prevSessions.map((s) =>
-                        s.sessionId === sessionId
-                            ? { sessionId, chatHistory, persona }
-                            : s
-                    );
-                } else {
-                    return [...prevSessions, { sessionId, chatHistory, persona }];
-                }
-            });
+            saveCurrentSession();
         }
 
-        // Load the selected session
         setChatHistory(session.chatHistory);
         setSessionId(session.sessionId);
         setPersona(session.persona);
-        setPersonaLocked(true); // Lock persona for loaded sessions
-
-        // Mark the session as closed to disable input (since it's an old session)
+        setPersonaLocked(true);
         setIsSessionClosed(true);
+        setShowFeedbackModal(false); // Hide feedback modal when loading a new session
     };
 
     return (
@@ -144,8 +139,7 @@ function App() {
                                 className="chat-session"
                                 onClick={() => loadSession(session)}
                             >
-                                Chat {index + 1} -{' '}
-                                {session.persona === 'technical' ? 'Tech' : 'Non-Tech'}
+                                Chat {index + 1} - {session.persona === 'technical' ? 'Tech' : 'Non-Tech'}
                             </div>
                         ))}
                     </div>
@@ -159,16 +153,12 @@ function App() {
                             Technical
                         </span>
                         <span
-                            className={`persona-option ${
-                                persona === 'non-technical' ? 'active' : ''
-                            }`}
+                            className={`persona-option ${persona === 'non-technical' ? 'active' : ''}`}
                             onClick={() => !personaLocked && setPersona('non-technical')}
                         >
                             Non-Technical
                         </span>
-                        <div
-                            className={`slider ${persona === 'technical' ? 'left' : 'right'}`}
-                        />
+                        <div className={`slider ${persona === 'technical' ? 'left' : 'right'}`} />
                     </div>
 
                     <div className="chat-window">
@@ -190,11 +180,46 @@ function App() {
                             placeholder="Ask me anything about tech news..."
                             disabled={isSessionClosed}
                         />
-                        <button type="submit" disabled={isSessionClosed}>
-                            Send
-                        </button>
+                        <button type="submit" disabled={isSessionClosed}>Send</button>
                     </form>
                 </div>
+                {showFeedbackModal && (
+                    <FeedbackModal onSubmit={handleFeedbackSubmit} closeModal={() => setShowFeedbackModal(false)} />
+                )}
+            </div>
+        </div>
+    );
+}
+
+function FeedbackModal({ onSubmit, closeModal }) {
+    const [selectedRating, setSelectedRating] = useState(null);
+
+    const handleRatingSelect = (rating) => {
+        setSelectedRating(rating);
+        onSubmit(rating);
+    };
+
+    useEffect(() => {
+        // Close modal after 2 seconds if feedback is provided
+        if (selectedRating !== null) {
+            const timer = setTimeout(closeModal, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [selectedRating, closeModal]);
+
+    return (
+        <div className="feedback-modal">
+            <p>How do you like the conversation so far?</p>
+            <div className="feedback-options">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                        key={rating}
+                        onClick={() => handleRatingSelect(rating)}
+                        className={selectedRating === rating ? 'selected' : ''}
+                    >
+                        {rating}
+                    </button>
+                ))}
             </div>
         </div>
     );

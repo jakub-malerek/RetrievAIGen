@@ -5,10 +5,11 @@ from app.chatbot.bot import TechNewsChatbot
 from app.ir_system.system import get_retriever
 from app.config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, OPENAI_API_KEY
 from app.api.database.db import SessionLocal
-from app.api.database.models import ChatSession, Message
+from app.api.database.models import ChatSession, Message, Feedback
 
 app = Flask(__name__)
 CORS(app)
+
 
 retriever = get_retriever(ES_HOST, ES_PORT, ES_USER, ES_PASSWORD)
 chatbot_instances = {}
@@ -100,6 +101,22 @@ def close_chat(session_id):
         close_session(db, session_id)
         chatbot_instances.pop(session_id, None)
         return jsonify({"message": "Session closed."})
+
+
+@app.route('/feedback', methods=['POST'])
+def collect_feedback():
+    data = request.get_json()
+    session_id = data.get('sessionId')
+    rating = data.get('rating')
+
+    if not session_id or not rating:
+        return jsonify({"error": "Session ID and rating are required."}), 400
+
+    with SessionLocal() as db:
+        feedback = Feedback(session_id=session_id, rating=rating)
+        db.add(feedback)
+        db.commit()
+        return jsonify({"message": "Feedback saved successfully."}), 201
 
 
 if __name__ == '__main__':
