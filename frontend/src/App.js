@@ -136,7 +136,7 @@ function App() {
         <div className="App">
             <nav className="navbar">
                 <FaRobot className="logo" />
-                <h1 className="navbar-title">TechNews Bot</h1>
+                <h1 className="navbar-title">Tech Bot</h1>
             </nav>
             <div className="main-container">
                 <div className="sidebar">
