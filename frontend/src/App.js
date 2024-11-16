@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './App.css';
 import { FaRobot } from 'react-icons/fa';
+import InfoTiles from './InfoTiles';
 
 function App() {
     const [question, setQuestion] = useState('');
@@ -18,15 +19,23 @@ function App() {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [feedbackThreshold, setFeedbackThreshold] = useState(getRandomThreshold());
     const [postFeedbackMessageCount, setPostFeedbackMessageCount] = useState(0);
+    const [showInfoTiles, setShowInfoTiles] = useState(true);
+    const [infoTilesVisible, setInfoTilesVisible] = useState(true); 
 
     function getRandomThreshold() {
-        return Math.floor(Math.random() * 4) + 4; // Random number between 4 and 7
+        return Math.floor(Math.random() * 4) + 4; 
     }
 
     useEffect(() => {
         startNewChat();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!showInfoTiles) {
+            const timer = setTimeout(() => setInfoTilesVisible(false), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [showInfoTiles]);
 
     const startNewChat = async () => {
         if (sessionId && chatHistory.length > 0) {
@@ -40,7 +49,8 @@ function App() {
         setShowFeedbackModal(false);
         setFeedbackThreshold(getRandomThreshold());
         setPostFeedbackMessageCount(0);
-
+        setShowInfoTiles(true); 
+        setInfoTilesVisible(true); 
         try {
             const response = await axios.post('http://127.0.0.1:8000/start_session', { persona });
             setSessionId(response.data.session_id);
@@ -68,6 +78,7 @@ function App() {
         if (!sessionId) return alert('Please start a new chat session.');
 
         if (!personaLocked) setPersonaLocked(true);
+        setShowInfoTiles(false); 
         const userMessage = { role: 'user', content: question };
         setChatHistory((prev) => [...prev, userMessage]);
         setQuestion('');
@@ -88,11 +99,11 @@ function App() {
         setFeedbackPromptCount((count) => count + 1);
         if (feedbackPromptCount + 1 >= feedbackThreshold) {
             setShowFeedbackModal(true);
-            setPostFeedbackMessageCount(0); // Reset post-feedback message count
+            setPostFeedbackMessageCount(0);
         } else if (showFeedbackModal) {
             setPostFeedbackMessageCount((count) => count + 1);
             if (postFeedbackMessageCount + 1 >= 2) {
-                setShowFeedbackModal(false); // Close feedback modal after two subsequent messages
+                setShowFeedbackModal(false);
             }
         }
     };
@@ -118,7 +129,7 @@ function App() {
         setPersona(session.persona);
         setPersonaLocked(true);
         setIsSessionClosed(true);
-        setShowFeedbackModal(false); // Hide feedback modal when loading a new session
+        setShowFeedbackModal(false);
     };
 
     return (
@@ -145,23 +156,29 @@ function App() {
                     </div>
                 </div>
                 <div className="chat-section">
-                    <div className={`persona-toggle ${personaLocked ? 'disabled' : ''}`}>
-                        <span
-                            className={`persona-option ${persona === 'technical' ? 'active' : ''}`}
-                            onClick={() => !personaLocked && setPersona('technical')}
-                        >
-                            Technical
-                        </span>
-                        <span
-                            className={`persona-option ${persona === 'non-technical' ? 'active' : ''}`}
-                            onClick={() => !personaLocked && setPersona('non-technical')}
-                        >
-                            Non-Technical
-                        </span>
-                        <div className={`slider ${persona === 'technical' ? 'left' : 'right'}`} />
+                    <div className="top-section-container">
+                        <div className={`persona-toggle ${personaLocked ? 'disabled' : ''}`}>
+                            <span
+                                className={`persona-option ${persona === 'technical' ? 'active' : ''}`}
+                                onClick={() => !personaLocked && setPersona('technical')}
+                            >
+                                Technical
+                            </span>
+                            <span
+                                className={`persona-option ${persona === 'non-technical' ? 'active' : ''}`}
+                                onClick={() => !personaLocked && setPersona('non-technical')}
+                            >
+                                Non-Technical
+                            </span>
+                            <div className={`slider ${persona === 'technical' ? 'left' : 'right'}`} />
+                        </div>
+                        {infoTilesVisible && (
+                            <div className={`info-tiles ${showInfoTiles ? '' : 'slide-up'}`}>
+                                <InfoTiles />
+                            </div>
+                        )}
                     </div>
-
-                    <div className="chat-window">
+                    <div className={`chat-window ${!infoTilesVisible ? 'no-top-padding' : ''}`}>
                         {chatHistory.map((msg, index) => (
                             <div key={index} className={`message ${msg.role}`}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -171,7 +188,6 @@ function App() {
                         ))}
                         {loading && <p className="loading">Loading...</p>}
                     </div>
-
                     <form onSubmit={handleSubmit} className="input-area">
                         <input
                             type="text"
@@ -200,7 +216,6 @@ function FeedbackModal({ onSubmit, closeModal }) {
     };
 
     useEffect(() => {
-        // Close modal after 2 seconds if feedback is provided
         if (selectedRating !== null) {
             const timer = setTimeout(closeModal, 2000);
             return () => clearTimeout(timer);

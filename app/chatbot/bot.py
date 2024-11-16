@@ -5,14 +5,14 @@ from app.chatbot.prompt_manager import PromptManager
 class TechNewsChatbot:
     def __init__(self, api_key: str, retriever=None, persona="technical"):
         """
-        Initializes the Tech News chatbot with a persona and a single OpenAI instance.
+        Initializes the Tech News chatbot with a persona and a OpenAI LLM instance.
 
         Parameters:
             api_key (str): The API key for OpenAI.
             retriever: The information retriever instance (optional).
             persona (str): The user persona, either "technical" or "non-technical".
         """
-        self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4", temperature=0.2)
+        self.llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o-mini", temperature=0.2)
         self.retriever = retriever
         self.chat_history = []
         self.persona_manager = PromptManager(persona)
