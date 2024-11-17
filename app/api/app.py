@@ -1,3 +1,4 @@
+from app.api.database import models
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sqlalchemy.orm import Session
@@ -6,10 +7,15 @@ from app.ir_system.system import get_retriever
 from app.config import ES_HOST, ES_PORT, ES_USER, ES_PASSWORD, OPENAI_API_KEY
 from app.api.database.db import SessionLocal
 from app.api.database.models import ChatSession, Message, Feedback
+from app.api.database.db import SessionLocal, engine, Base
 
 app = Flask(__name__)
 CORS(app)
 
+# Import models so that they are registered with Base
+
+# Create all tables
+Base.metadata.create_all(bind=engine)
 
 retriever = get_retriever(ES_HOST, ES_PORT, ES_USER, ES_PASSWORD)
 chatbot_instances = {}
@@ -89,7 +95,7 @@ def ask_question():
 @app.route('/history/<int:session_id>', methods=['GET'])
 def get_history(session_id):
     with SessionLocal() as db:
-        history = db.query(Message).filter(Message.session_id == session_id).all()
+        history = db.query(Message).filter(Message.session_id == session_id).order_by(Message.id).all()
         return jsonify([
             {"role": msg.role, "content": msg.content} for msg in history
         ])

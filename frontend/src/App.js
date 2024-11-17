@@ -20,10 +20,10 @@ function App() {
     const [feedbackThreshold, setFeedbackThreshold] = useState(getRandomThreshold());
     const [postFeedbackMessageCount, setPostFeedbackMessageCount] = useState(0);
     const [showInfoTiles, setShowInfoTiles] = useState(true);
-    const [infoTilesVisible, setInfoTilesVisible] = useState(true); 
+    const [infoTilesVisible, setInfoTilesVisible] = useState(true);
 
     function getRandomThreshold() {
-        return Math.floor(Math.random() * 4) + 4; 
+        return Math.floor(Math.random() * 4) + 4;
     }
 
     useEffect(() => {
@@ -49,10 +49,14 @@ function App() {
         setShowFeedbackModal(false);
         setFeedbackThreshold(getRandomThreshold());
         setPostFeedbackMessageCount(0);
-        setShowInfoTiles(true); 
-        setInfoTilesVisible(true); 
+        setShowInfoTiles(true);
+        setInfoTilesVisible(true);
+
         try {
-            const response = await axios.post('http://127.0.0.1:8000/start_session', { persona });
+            const response = await axios.post('http://127.0.0.1:8000/start_session', {
+                persona,
+                session_id: sessionId, // Include the current sessionId
+            });
             setSessionId(response.data.session_id);
         } catch (error) {
             alert('Failed to start a new chat session.');
@@ -63,11 +67,9 @@ function App() {
         setSessions((prevSessions) => {
             const sessionExists = prevSessions.some((s) => s.sessionId === sessionId);
             if (sessionExists) {
-                return prevSessions.map((s) =>
-                    s.sessionId === sessionId ? { sessionId, chatHistory, persona } : s
-                );
+                return prevSessions;
             } else {
-                return [...prevSessions, { sessionId, chatHistory, persona }];
+                return [...prevSessions, { sessionId, persona }];
             }
         });
     };
@@ -78,14 +80,18 @@ function App() {
         if (!sessionId) return alert('Please start a new chat session.');
 
         if (!personaLocked) setPersonaLocked(true);
-        setShowInfoTiles(false); 
+        setShowInfoTiles(false);
         const userMessage = { role: 'user', content: question };
         setChatHistory((prev) => [...prev, userMessage]);
         setQuestion('');
         setLoading(true);
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/ask', { question, persona, session_id: sessionId });
+            const response = await axios.post('http://127.0.0.1:8000/ask', {
+                question,
+                persona,
+                session_id: sessionId,
+            });
             setChatHistory((prev) => [...prev, { role: 'bot', content: response.data.response }]);
             handleFeedbackPrompt();
         } catch {
@@ -119,17 +125,28 @@ function App() {
         }
     };
 
-    const loadSession = (session) => {
+    const loadSession = async (session) => {
         if (sessionId && sessionId !== session.sessionId && chatHistory.length > 0) {
             saveCurrentSession();
         }
 
-        setChatHistory(session.chatHistory);
+        try {
+            const response = await axios.get(`http://127.0.0.1:8000/history/${session.sessionId}`);
+            setChatHistory(response.data.map((msg) => ({ role: msg.role, content: msg.content })));
+        } catch (error) {
+            alert('Failed to load chat history.');
+            return;
+        }
+
         setSessionId(session.sessionId);
         setPersona(session.persona);
         setPersonaLocked(true);
         setIsSessionClosed(true);
         setShowFeedbackModal(false);
+
+        // Hide info tiles when loading a historical chat
+        setShowInfoTiles(false);
+        setInfoTilesVisible(false);
     };
 
     return (
@@ -196,11 +213,16 @@ function App() {
                             placeholder="Ask me anything about tech news..."
                             disabled={isSessionClosed}
                         />
-                        <button type="submit" disabled={isSessionClosed}>Send</button>
+                        <button type="submit" disabled={isSessionClosed}>
+                            Send
+                        </button>
                     </form>
                 </div>
                 {showFeedbackModal && (
-                    <FeedbackModal onSubmit={handleFeedbackSubmit} closeModal={() => setShowFeedbackModal(false)} />
+                    <FeedbackModal
+                        onSubmit={handleFeedbackSubmit}
+                        closeModal={() => setShowFeedbackModal(false)}
+                    />
                 )}
             </div>
         </div>
